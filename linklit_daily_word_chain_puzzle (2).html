@@ -1,0 +1,1066 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>LINKLIT - Daily Word Chain Puzzle</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts for Monospace Timer -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        body {
+            background-color: #121213;
+            color: #ffffff;
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+            overflow-x: hidden;
+        }
+
+        /* Fullscreen Confetti Canvas */
+        #confettiCanvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            pointer-events: none;
+            z-index: 60;
+        }
+
+        /* Bright Green Branding Header */
+        .bright-green-text {
+            color: #00ff66;
+            text-shadow: 0 0 14px rgba(0, 255, 102, 0.4);
+        }
+
+        /* Sharp Square Tile Styling with Standard Bold Wordle Typography */
+        .tile {
+            width: 44px;
+            height: 44px;
+            max-width: 12vw;
+            max-height: 12vw;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Clear Sans', 'Helvetica Neue', Arial, sans-serif;
+            font-size: 1.8rem;
+            font-weight: 700;
+            line-height: 1;
+            text-transform: uppercase;
+            border: 2px solid #3a3a3c;
+            border-radius: 0px; /* Sharp 0px Square Boxes */
+            margin: 0 1.5px;
+            transition: border-color 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+            box-sizing: border-box;
+            background-color: #121213;
+            color: #ffffff;
+            position: relative;
+        }
+
+        /* Responsive font scaling for longer words */
+        .tile-small {
+            font-size: 1.25rem;
+        }
+        .tile-tiny {
+            font-size: 1.05rem;
+        }
+
+        .tile.filled {
+            border-color: #565758;
+            color: #ffffff;
+        }
+
+        .tile.solved {
+            background-color: #538d4e !important;
+            border-color: #538d4e !important;
+            color: #ffffff !important;
+        }
+
+        .tile.hinted {
+            background-color: #b59f3b !important;
+            border-color: #b59f3b !important;
+            color: #ffffff !important;
+        }
+
+        /* Row Container & Selection Focus Outline */
+        .word-row {
+            padding: 4px 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .word-row.active-selected .tile {
+            border-color: #00ff66;
+        }
+
+        /* Keypress Pop Animation */
+        @keyframes popIn {
+            0% { transform: scale(0.85); }
+            50% { transform: scale(1.12); }
+            100% { transform: scale(1); }
+        }
+
+        .pop-tile {
+            animation: popIn 0.12s ease-in-out;
+        }
+
+        /* Row Shake Animation */
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-6px); }
+            40%, 80% { transform: translateX(6px); }
+        }
+
+        .shake-row {
+            animation: shake 0.35s ease-in-out;
+        }
+
+        /* 
+         * Hardware-Accelerated Sequential Wave Bounce Animation
+         */
+        @keyframes tileWaveJump {
+            0% {
+                transform: translate3d(0, 0, 0);
+            }
+            50% {
+                transform: translate3d(0, -18px, 0);
+            }
+            100% {
+                transform: translate3d(0, 0, 0);
+            }
+        }
+
+        .wave-bounce {
+            backface-visibility: hidden;
+            -webkit-backface-visibility: hidden;
+            transform-style: preserve-3d;
+            will-change: transform;
+            animation: tileWaveJump 220ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+        }
+
+        /* On-Screen Keypad Styling */
+        .key-btn {
+            background-color: #818384;
+            color: #ffffff;
+            font-weight: 700;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            touch-action: manipulation;
+            font-size: 0.95rem;
+            min-height: 52px;
+            user-select: none;
+        }
+
+        .key-btn:active {
+            background-color: #636566;
+        }
+
+        .key-btn-wide {
+            font-size: 0.75rem;
+            padding: 0 6px;
+        }
+
+        /* Toast Popup */
+        #toast {
+            transition: opacity 0.25s ease, transform 0.25s ease;
+            z-index: 70;
+        }
+
+        /* Custom Monospace Timer Styling */
+        .timer-font {
+            font-family: 'Roboto Mono', 'Courier New', Courier, monospace;
+        }
+
+        /* Modern Premium Logo Styling */
+        .logo-title {
+            font-family: 'Clear Sans', 'Helvetica Neue', Arial, sans-serif;
+            font-weight: 800;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+        }
+
+        /* Standard Sans-Serif Styling for Start Modal Subtext */
+        .modal-subtext-font {
+            font-family: 'Verdana', sans-serif;
+            font-style: normal;
+        }
+
+        /* Slide Up Animation for Victory Popup */
+        @keyframes slideUpModal {
+            0% {
+                transform: translateY(100vh);
+                opacity: 0;
+            }
+            100% {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .slide-up-modal {
+            animation: slideUpModal 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between items-center bg-[#121213] text-white">
+
+    <!-- Canvas overlay for full-screen victory confetti explosion -->
+    <canvas id="confettiCanvas"></canvas>
+
+    <!-- Top Completion Banner -->
+    <div id="completedBanner" class="hidden w-full bg-emerald-600 text-white text-center py-2 px-4 text-xs sm:text-sm font-semibold shadow-md z-10">
+        <i class="fa-solid fa-circle-check mr-2"></i> Daily Puzzle Solved! Next puzzle available tomorrow.
+    </div>
+
+    <!-- Header Navigation -->
+    <header class="w-full max-w-md border-b border-[#272729] py-3 px-4 flex justify-between items-center z-10">
+        <button id="helpBtn" class="text-gray-400 hover:text-white text-xl p-1" title="Help"><i class="fa-solid fa-circle-question"></i></button>
+        <div class="flex items-center gap-2">
+            <h1 class="logo-title text-2xl text-white flex items-center">
+                LINK<span class="bright-green-text">LIT</span>
+            </h1>
+        </div>
+        <div class="flex items-center gap-2">
+            <button id="statsBtn" class="text-gray-400 hover:text-white text-xl p-1" title="Stats"><i class="fa-solid fa-chart-column"></i></button>
+        </div>
+    </header>
+
+    <!-- Scoreboard & Indicators -->
+    <div class="w-full max-w-md px-4 py-2 flex justify-between items-center text-xs sm:text-sm font-medium border-b border-[#272729] bg-[#1a1a1b] z-10">
+        <div class="flex items-center gap-1.5">
+            <span class="text-base">🏆</span>
+            <span class="text-gray-300">Score:</span>
+            <span id="scoreDisplay" class="text-emerald-400 font-bold text-base">100</span>
+        </div>
+        <div class="flex items-center gap-1.5">
+            <span class="text-base">⏱️</span>
+            <span class="text-gray-300">Time:</span>
+            <span id="timerDisplay" class="timer-font text-base font-bold tracking-wider text-emerald-300">00:00</span>
+        </div>
+        <div class="flex items-center gap-1.5">
+            <span class="text-base">💡</span>
+            <span class="text-gray-300">Hints:</span>
+            <span id="hintCountDisplay" class="text-yellow-400 font-bold text-base">0</span>
+        </div>
+    </div>
+
+    <!-- Toast Notification Message -->
+    <div id="toast" class="opacity-0 pointer-events-none fixed top-20 z-[70] bg-white text-black text-xs sm:text-sm font-bold px-4 py-2 rounded-md shadow-lg transform -translate-y-2">
+        Not enough letters
+    </div>
+
+    <!-- Main Game Board Container -->
+    <main id="boardContainer" class="flex-1 w-full max-w-md flex flex-col justify-center items-center py-3 px-2 space-y-2 z-10">
+        <!-- Rows 0 through 6 generated dynamically -->
+    </main>
+
+    <!-- Controls Row -->
+    <div class="w-full max-w-md px-3 py-1 flex justify-between gap-2 z-10">
+        <button id="clearBtn" class="flex-1 bg-red-900/40 border border-red-700/60 hover:bg-red-900/60 active:bg-red-900 text-red-200 font-semibold py-2 px-2 rounded flex items-center justify-center gap-1.5 text-xs transition">
+            <i class="fa-solid fa-eraser"></i> Clear Row
+        </button>
+        <button id="hintBtn" class="flex-1 bg-yellow-900/40 border border-yellow-600/60 hover:bg-yellow-900/60 active:bg-yellow-900 text-yellow-200 font-semibold py-2 px-2 rounded flex items-center justify-center gap-1.5 text-xs transition">
+            <i class="fa-solid fa-lightbulb"></i> Reveal Letter (-5 pts)
+        </button>
+    </div>
+
+    <!-- Virtual On-Screen Keyboard -->
+    <div class="w-full max-w-md px-1 pb-3 pt-1 z-10">
+        <div class="flex justify-center gap-1 my-1">
+            <button class="key-btn flex-1" data-key="Q">Q</button>
+            <button class="key-btn flex-1" data-key="W">W</button>
+            <button class="key-btn flex-1" data-key="E">E</button>
+            <button class="key-btn flex-1" data-key="R">R</button>
+            <button class="key-btn flex-1" data-key="T">T</button>
+            <button class="key-btn flex-1" data-key="Y">Y</button>
+            <button class="key-btn flex-1" data-key="U">U</button>
+            <button class="key-btn flex-1" data-key="I">I</button>
+            <button class="key-btn flex-1" data-key="O">O</button>
+            <button class="key-btn flex-1" data-key="P">P</button>
+        </div>
+        <div class="flex justify-center gap-1 my-1 px-3">
+            <button class="key-btn flex-1" data-key="A">A</button>
+            <button class="key-btn flex-1" data-key="S">S</button>
+            <button class="key-btn flex-1" data-key="D">D</button>
+            <button class="key-btn flex-1" data-key="F">F</button>
+            <button class="key-btn flex-1" data-key="G">G</button>
+            <button class="key-btn flex-1" data-key="H">H</button>
+            <button class="key-btn flex-1" data-key="J">J</button>
+            <button class="key-btn flex-1" data-key="K">K</button>
+            <button class="key-btn flex-1" data-key="L">L</button>
+        </div>
+        <div class="flex justify-center gap-1 my-1">
+            <button class="key-btn key-btn-wide flex-[1.5]" data-key="ENTER">ENTER</button>
+            <button class="key-btn flex-1" data-key="Z">Z</button>
+            <button class="key-btn flex-1" data-key="X">X</button>
+            <button class="key-btn flex-1" data-key="C">C</button>
+            <button class="key-btn flex-1" data-key="V">V</button>
+            <button class="key-btn flex-1" data-key="B">B</button>
+            <button class="key-btn flex-1" data-key="N">N</button>
+            <button class="key-btn flex-1" data-key="M">M</button>
+            <button class="key-btn key-btn-wide flex-[1.5]" data-key="BACKSPACE"><i class="fa-solid fa-backspace"></i></button>
+        </div>
+    </div>
+
+    <!-- TRANSLUCENT START OVERLAY (Semi-transparent backdrop with blur) -->
+    <div id="startOverlay" class="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div id="startModal" class="bg-[#1e1e20] border border-gray-700 rounded-xl p-6 max-w-sm w-full text-center space-y-4 shadow-2xl">
+            <div class="flex justify-center items-center gap-2">
+                <h2 class="logo-title text-3xl text-white flex items-center">
+                    LINK<span class="bright-green-text">LIT</span>
+                </h2>
+            </div>
+            <p class="modal-subtext-font text-gray-200 text-xs sm:text-sm leading-relaxed font-normal">
+                Connect the 7-word chain! Words #1 and #7 are given. Guess the 5 middle words where each word links with the next. Tap any row to jump directly to it!
+            </p>
+            <div class="py-1">
+                <span class="inline-block bg-emerald-900/50 text-emerald-300 border border-emerald-700/60 px-3 py-1 rounded-full text-xs font-semibold">
+                    Today's Daily Puzzle Ready
+                </span>
+            </div>
+            <button id="startGameBtn" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-lg text-base shadow-lg transition">
+                PLAY PUZZLE
+            </button>
+        </div>
+    </div>
+
+    <!-- SEMI-TRANSPARENT GAME MODALS OVERLAY (Used for Help and Victory) -->
+    <div id="modalOverlay" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <!-- Help Modal -->
+        <div id="helpModal" class="hidden bg-[#1e1e20] border border-gray-700 rounded-xl p-6 max-w-sm w-full space-y-4 text-sm relative">
+            <button class="closeModalBtn absolute top-3 right-4 text-gray-400 hover:text-white text-2xl">&times;</button>
+            <h3 class="text-lg font-bold text-center text-white border-b border-gray-700 pb-2">How To Play</h3>
+            <ul class="space-y-2 text-gray-300 text-xs leading-relaxed list-disc pl-4">
+                <li>Complete the 5 missing middle words in the word chain.</li>
+                <li>Each adjacent word pair forms a phrase (e.g. <strong>SILVER</strong> &rarr; <strong>LINING</strong> &rarr; <strong>FABRIC</strong>).</li>
+                <li>Tap any unsolved row to jump directly to it and solve in any order you choose!</li>
+                <li>Use <strong class="text-yellow-400">Reveal Letter</strong> (-5 pts) if you get stuck.</li>
+            </ul>
+            <button class="closeModalBtn w-full bg-gray-700 hover:bg-gray-600 text-white font-semibold py-2 rounded text-xs transition">
+                Got It
+            </button>
+        </div>
+
+        <!-- Victory Modal (Slides up over semi-transparent backdrop) -->
+        <div id="victoryModal" class="hidden bg-[#1e1e20] border border-emerald-500 rounded-xl p-6 max-w-sm w-full text-center space-y-4 relative shadow-2xl slide-up-modal">
+            <button class="closeModalBtn absolute top-3 right-4 text-gray-400 hover:text-white text-2xl">&times;</button>
+            <div class="text-yellow-400 text-4xl mb-1"><i class="fa-solid fa-trophy"></i></div>
+            <h3 id="victoryHeading" class="text-2xl font-extrabold text-white">GREAT JOB!</h3>
+            <p class="text-xs text-emerald-400 font-semibold">You completed today's LINKLIT puzzle!</p>
+            <p id="victorySubscript" class="text-xs text-gray-300 font-medium"></p>
+            <p class="text-xs text-gray-400 italic border-t border-gray-800 pt-2">Come back tomorrow for a new word chain!</p>
+
+            <div class="bg-[#121213] rounded-lg p-3 text-xs space-y-2 text-left border border-gray-800">
+                <div class="flex justify-between text-gray-300"><span>Base Score:</span><span class="font-bold text-white">100</span></div>
+                <div class="flex justify-between text-gray-300"><span>Time Penalty:</span><span id="summaryTimePen" class="text-red-400">-0</span></div>
+                <div class="flex justify-between text-gray-300"><span>Hint Penalty:</span><span id="summaryHintPen" class="text-yellow-400">-0</span></div>
+                <div class="border-t border-gray-700 pt-2 flex justify-between text-sm font-bold"><span>Final Score:</span><span id="summaryFinalScore" class="text-emerald-400">100</span></div>
+            </div>
+
+            <button id="shareBtn" class="w-full bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-bold py-2.5 rounded-lg text-sm flex items-center justify-center gap-2 transition">
+                <i class="fa-solid fa-share-nodes"></i> Share Score
+            </button>
+        </div>
+    </div>
+
+    <!-- Core Game Logic -->
+    <script>
+        // Canvas Confetti FX Engine
+        const canvas = document.getElementById('confettiCanvas');
+        const ctx = canvas.getContext('2d');
+        let particles = [];
+        let confettiAnimationId = null;
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        function triggerConfettiBurst() {
+            particles = [];
+            const colors = ['#00ff66', '#ffffff', '#eab308', '#3b82f6', '#ec4899', '#a855f7'];
+            const count = 120; // 120 vivid particle pieces
+
+            for (let i = 0; i < count; i++) {
+                particles.push({
+                    x: canvas.width / 2,
+                    y: canvas.height * 0.45,
+                    vx: (Math.random() - 0.5) * 16,
+                    vy: (Math.random() - 0.8) * 18,
+                    size: Math.random() * 8 + 5,
+                    color: colors[Math.floor(Math.random() * colors.length)],
+                    rotation: Math.random() * 360,
+                    rSpeed: (Math.random() - 0.5) * 10,
+                    opacity: 1,
+                    decay: Math.random() * 0.012 + 0.008
+                });
+            }
+
+            if (confettiAnimationId) cancelAnimationFrame(confettiAnimationId);
+            animateConfetti();
+        }
+
+        function animateConfetti() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            let alive = false;
+
+            particles.forEach(p => {
+                if (p.opacity > 0) {
+                    alive = true;
+                    p.x += p.vx;
+                    p.y += p.vy;
+                    p.vy += 0.4; // Gravity simulation
+                    p.vx *= 0.98; // Drag simulation
+                    p.rotation += p.rSpeed;
+                    p.opacity -= p.decay;
+
+                    ctx.save();
+                    ctx.globalAlpha = Math.max(0, p.opacity);
+                    ctx.translate(p.x, p.y);
+                    ctx.rotate((p.rotation * Math.PI) / 180);
+                    ctx.fillStyle = p.color;
+                    ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 0.6);
+                    ctx.restore();
+                }
+            });
+
+            if (alive) {
+                confettiAnimationId = requestAnimationFrame(animateConfetti);
+            } else {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+            }
+        }
+
+        // Daily Puzzles Schedule with Explicit Date Mapping (Eastern Time YYYY-MM-DD)
+        const SCHEDULED_PUZZLES = {
+            "2026-11-01": ["FIRE", "FLY", "PAPER", "BAG", "PIPE", "LINE", "DANCE"],
+            "2026-11-02": ["MCDONALDS", "BURGER", "KING", "BED", "TIME", "ZONE", "OUT"],
+            "2026-11-03": ["FRIED", "CHICKEN", "BREAST", "CANCER", "TREATMENT", "ROOM", "KEY"],
+            "2026-11-04": ["SUN", "FLOWER", "POWER", "LINE", "DANCE", "FLOOR", "BOARD"],
+            "2026-11-05": ["MERRY", "CHRISTMAS", "TREE", "HOUSE", "KEEPING", "UP", "DOWN"],
+            "2026-11-06": ["BASEBALL", "HAT", "TRICK", "PLAY", "BALL", "OUT", "LAW"],
+            "2026-11-07": ["TALK", "SHOW", "DOWN", "FALL", "OUT", "BREAK", "UP"],
+            "2026-11-08": ["NINTENDO", "WII", "SPORTS", "CAR", "CRASH", "OUT", "SIDE"],
+            "2026-11-09": ["TAYLOR", "SWIFT", "KICK", "OFF", "SIDE", "LINE", "UP"],
+            "2026-11-10": ["SNEAK", "ATTACK", "DOG", "BED", "TIME", "OUT", "SIDE"],
+            "2026-11-11": ["WATER", "BOTTLE", "NECK", "PAIN", "KILLER", "BEE", "HIVE"]
+        };
+
+        const FALLBACK_CHAINS = Object.values(SCHEDULED_PUZZLES);
+
+        const BASE_SCORE = 100;
+        const HINT_PENALTY = 5; // -5 points per revealed letter
+
+        // State variables
+        let currentChain = [];
+        let rowStates = []; // Objects: { current: string, solved: bool, hints: bool[] }
+        let activeWordIndex = 1;
+        let timerInterval = null;
+        let elapsedSeconds = 0;
+        let hintPenaltyTotal = 0;
+        let hintsUsedCount = 0;
+        let isGameCompleted = false;
+
+        // Date key tied to Eastern Time
+        function getEstDateKey() {
+            return new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+        }
+
+        // Web Audio API Audio Context Helper
+        function getAudioContext() {
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            if (!AudioContext) return null;
+            return new AudioContext();
+        }
+
+        // Web Audio Synth - Correct Row Guess (Bright Dual-Tone / Rising Pitch Per Solved Row)
+        function playCorrectRowSound(solvedCount = 1, totalRows = 5) {
+            try {
+                const ctx = getAudioContext();
+                if (!ctx) return;
+
+                const now = ctx.currentTime;
+                
+                const pitchMap = [523.25, 659.25, 783.99, 987.77, 1046.50];
+                const rootFreq = pitchMap[Math.min(solvedCount - 1, pitchMap.length - 1)] || 523.25;
+                const thirdFreq = rootFreq * 1.25; // Major 3rd
+                const fifthFreq = rootFreq * 1.5;  // Perfect 5th
+
+                const chordNotes = [rootFreq, thirdFreq, fifthFreq];
+                chordNotes.forEach((freq, idx) => {
+                    const noteTime = now + (idx * 0.045);
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(freq, noteTime);
+                    
+                    gain.gain.setValueAtTime(0.001, noteTime);
+                    gain.gain.linearRampToValueAtTime(0.25, noteTime + 0.015);
+                    gain.gain.exponentialRampToValueAtTime(0.0001, noteTime + 0.35);
+
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start(noteTime);
+                    osc.stop(noteTime + 0.36);
+                });
+
+                const subOsc = ctx.createOscillator();
+                const subGain = ctx.createGain();
+                subOsc.type = 'triangle';
+                subOsc.frequency.setValueAtTime(rootFreq * 0.5, now);
+                subOsc.frequency.exponentialRampToValueAtTime(rootFreq * 0.25, now + 0.12);
+
+                subGain.gain.setValueAtTime(0.22, now);
+                subGain.gain.exponentialRampToValueAtTime(0.001, now + 0.14);
+
+                subOsc.connect(subGain);
+                subGain.connect(ctx.destination);
+                subOsc.start(now);
+                subOsc.stop(now + 0.15);
+
+            } catch (e) {
+                console.log("Audio deferred or unsupported");
+            }
+        }
+
+        // Web Audio Synth - Incorrect Row Guess (Soft Low-Pitch Negative Thud)
+        function playIncorrectRowSound() {
+            try {
+                const ctx = getAudioContext();
+                if (!ctx) return;
+
+                const now = ctx.currentTime;
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(160, now);
+                osc.frequency.exponentialRampToValueAtTime(90, now + 0.18);
+
+                gain.gain.setValueAtTime(0.15, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.18);
+            } catch (e) {
+                console.log("Audio deferred or unsupported");
+            }
+        }
+
+        // Web Audio API Synth Victory Chime
+        function playVictoryJingle() {
+            try {
+                const audioCtx = getAudioContext();
+                if (!audioCtx) return;
+
+                const notes = [
+                    { note: 523.25, time: 0, duration: 0.12 },    // C5
+                    { note: 659.25, time: 0.12, duration: 0.12 }, // E5
+                    { note: 783.99, time: 0.24, duration: 0.12 }, // G5
+                    { note: 1046.50, time: 0.36, duration: 0.35 } // C6
+                ];
+
+                notes.forEach(n => {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.value = n.note;
+
+                    gain.gain.setValueAtTime(0.2, audioCtx.currentTime + n.time);
+                    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + n.time + n.duration);
+
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+
+                    osc.start(audioCtx.currentTime + n.time);
+                    osc.stop(audioCtx.currentTime + n.time + n.duration);
+                });
+            } catch (e) {
+                console.log("Audio play deferred or unsupported");
+            }
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            toast.textContent = msg;
+            toast.classList.remove('opacity-0', 'pointer-events-none', '-translate-y-2');
+            toast.classList.add('opacity-100', 'translate-y-0');
+            setTimeout(() => {
+                toast.classList.remove('opacity-100', 'translate-y-0');
+                toast.classList.add('opacity-0', 'pointer-events-none', '-translate-y-2');
+            }, 1600);
+        }
+
+        function initGame() {
+            const todayKey = getEstDateKey();
+            const savedState = localStorage.getItem(`linklit_daily_${todayKey}`);
+
+            if (SCHEDULED_PUZZLES[todayKey]) {
+                currentChain = SCHEDULED_PUZZLES[todayKey];
+            } else {
+                let hash = 0;
+                for (let i = 0; i < todayKey.length; i++) hash += todayKey.charCodeAt(i);
+                const chainIdx = Math.abs(hash) % FALLBACK_CHAINS.length;
+                currentChain = FALLBACK_CHAINS[chainIdx];
+            }
+
+            if (savedState) {
+                try {
+                    const parsed = JSON.parse(savedState);
+                    rowStates = parsed.rowStates;
+                    elapsedSeconds = parsed.elapsedSeconds || 0;
+                    hintPenaltyTotal = parsed.hintPenaltyTotal || 0;
+                    hintsUsedCount = parsed.hintsUsedCount || 0;
+                    isGameCompleted = parsed.isGameCompleted || false;
+
+                    document.getElementById('startOverlay').classList.add('hidden');
+
+                    if (isGameCompleted) {
+                        document.getElementById('completedBanner').classList.remove('hidden');
+                        showVictoryModal();
+                    } else {
+                        findFirstUnsolvedRow();
+                        startTimer();
+                    }
+                } catch (e) {
+                    setupNewBoard();
+                }
+            } else {
+                setupNewBoard();
+            }
+
+            renderBoard();
+            updateScoreboard();
+
+            // Bind Control Buttons
+            document.getElementById('startGameBtn').addEventListener('click', () => {
+                document.getElementById('startOverlay').classList.add('hidden');
+                if (!isGameCompleted && !timerInterval) {
+                    startTimer();
+                }
+            });
+
+            document.querySelectorAll('.closeModalBtn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.getElementById('modalOverlay').classList.add('hidden');
+                    document.getElementById('helpModal').classList.add('hidden');
+                    document.getElementById('victoryModal').classList.add('hidden');
+                });
+            });
+
+            document.getElementById('helpBtn').addEventListener('click', () => {
+                document.getElementById('modalOverlay').classList.remove('hidden');
+                document.getElementById('helpModal').classList.remove('hidden');
+                document.getElementById('victoryModal').classList.add('hidden');
+            });
+
+            document.getElementById('statsBtn').addEventListener('click', () => {
+                if (isGameCompleted) {
+                    showVictoryModal();
+                } else {
+                    showToast("Complete today's puzzle to view stats!");
+                }
+            });
+
+            document.getElementById('clearBtn').addEventListener('click', clearActiveRow);
+            document.getElementById('hintBtn').addEventListener('click', revealLetterHint);
+            document.getElementById('shareBtn').addEventListener('click', shareScore);
+
+            // Physical Keyboard Listener
+            window.addEventListener('keydown', handlePhysicalKeyDown);
+
+            // On-screen Virtual Keyboard
+            document.querySelectorAll('.key-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const key = btn.getAttribute('data-key');
+                    handleInput(key);
+                });
+            });
+        }
+
+        function setupNewBoard() {
+            rowStates = currentChain.map((target, idx) => {
+                if (idx === 0 || idx === 6) {
+                    return { current: target, solved: true, hints: new Array(target.length).fill(false) };
+                } else {
+                    let initial = target[0] + ' '.repeat(target.length - 1);
+                    let hints = new Array(target.length).fill(false);
+                    hints[0] = true;
+                    return { current: initial, solved: false, hints: hints };
+                }
+            });
+            activeWordIndex = 1;
+        }
+
+        function findFirstUnsolvedRow() {
+            for (let i = 1; i <= 5; i++) {
+                if (!rowStates[i].solved) {
+                    activeWordIndex = i;
+                    break;
+                }
+            }
+        }
+
+        function startTimer() {
+            if (timerInterval) clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                elapsedSeconds++;
+                updateScoreboard();
+            }, 1000);
+        }
+
+        function updateScoreboard() {
+            const timePen = Math.floor(elapsedSeconds / 3);
+            const currentScore = Math.max(0, BASE_SCORE - timePen - hintPenaltyTotal);
+
+            document.getElementById('scoreDisplay').textContent = currentScore;
+            document.getElementById('hintCountDisplay').textContent = hintsUsedCount;
+
+            const mins = String(Math.floor(elapsedSeconds / 60)).padStart(2, '0');
+            const secs = String(elapsedSeconds % 60).padStart(2, '0');
+            document.getElementById('timerDisplay').textContent = `${mins}:${secs}`;
+        }
+
+        function renderBoard() {
+            const container = document.getElementById('boardContainer');
+            container.innerHTML = '';
+
+            currentChain.forEach((targetWord, rIdx) => {
+                const rowDiv = document.createElement('div');
+                const isSelected = (rIdx === activeWordIndex) && !isGameCompleted && !rowStates[rIdx].solved;
+                rowDiv.className = `word-row flex items-center justify-center transition-all py-0.5 ${isSelected ? 'active-selected' : ''}`;
+                rowDiv.dataset.row = rIdx;
+
+                if (rIdx > 0 && rIdx < 6 && !rowStates[rIdx].solved && !isGameCompleted) {
+                    rowDiv.style.cursor = 'pointer';
+                    rowDiv.onclick = () => {
+                        activeWordIndex = rIdx;
+                        renderBoard();
+                    };
+                }
+
+                const state = rowStates[rIdx];
+                for (let cIdx = 0; cIdx < targetWord.length; cIdx++) {
+                    const tile = document.createElement('div');
+                    const char = (state.current[cIdx] || ' ').trim();
+
+                    let classes = 'tile';
+                    if (targetWord.length >= 9) {
+                        classes += ' tile-tiny';
+                    } else if (targetWord.length >= 7) {
+                        classes += ' tile-small';
+                    }
+
+                    if (state.solved) {
+                        classes += ' solved';
+                    } else if (state.hints[cIdx]) {
+                        classes += ' hinted';
+                    } else if (char !== '') {
+                        classes += ' filled';
+                    }
+
+                    tile.className = classes;
+                    tile.textContent = char;
+                    rowDiv.appendChild(tile);
+                }
+
+                container.appendChild(rowDiv);
+            });
+        }
+
+        function handlePhysicalKeyDown(e) {
+            if (isGameCompleted) return;
+            if (e.key === 'Backspace' || e.key === 'Enter') {
+                e.preventDefault();
+            }
+
+            if (e.key === 'Backspace') {
+                handleInput('BACKSPACE');
+            } else if (e.key === 'Enter') {
+                handleInput('ENTER');
+            } else if (/^[a-zA-Z]$/.test(e.key)) {
+                handleInput(e.key.toUpperCase());
+            }
+        }
+
+        function handleInput(key) {
+            if (isGameCompleted) return;
+            const target = currentChain[activeWordIndex];
+            const state = rowStates[activeWordIndex];
+            if (!state || state.solved) return;
+
+            if (key === 'BACKSPACE') {
+                let chars = state.current.split('');
+                for (let i = chars.length - 1; i >= 0; i--) {
+                    if (!state.hints[i] && chars[i] !== ' ') {
+                        chars[i] = ' ';
+                        break;
+                    }
+                }
+                state.current = chars.join('');
+                renderBoard();
+                saveGameState();
+            } else if (key === 'ENTER') {
+                evaluateActiveRow();
+            } else if (/^[A-Z]$/.test(key)) {
+                let chars = state.current.split('');
+                for (let i = 0; i < chars.length; i++) {
+                    if (chars[i] === ' ') {
+                        chars[i] = key;
+                        state.current = chars.join('');
+                        renderBoard();
+                        saveGameState();
+
+                        const rowElement = document.querySelector(`.word-row[data-row="${activeWordIndex}"]`);
+                        if (rowElement && rowElement.children[i]) {
+                            rowElement.children[i].classList.add('pop-tile');
+                        }
+                        return;
+                    }
+                }
+            }
+        }
+
+        function triggerSequentialWave(rowIdx) {
+            const rowElement = document.querySelector(`.word-row[data-row="${rowIdx}"]`);
+            if (!rowElement) return;
+
+            const tiles = Array.from(rowElement.children);
+            const STAGGER_DELAY_MS = 80;
+
+            tiles.forEach((tile, tileIdx) => {
+                tile.classList.remove('wave-bounce');
+                tile.style.animationDelay = '';
+                void tile.offsetWidth;
+                tile.style.animationDelay = `${tileIdx * STAGGER_DELAY_MS}ms`;
+                tile.classList.add('wave-bounce');
+            });
+        }
+
+        function evaluateActiveRow() {
+            const state = rowStates[activeWordIndex];
+            const target = currentChain[activeWordIndex];
+
+            if (state.current.replace(/ /g, '').length < target.length) {
+                showToast("Not enough letters");
+                playIncorrectRowSound();
+                shakeRow(activeWordIndex);
+                return;
+            }
+
+            if (state.current.trim() === target) {
+                state.solved = true;
+                renderBoard();
+
+                const solvedRowIndex = activeWordIndex;
+                triggerSequentialWave(solvedRowIndex);
+
+                const solvedCount = rowStates.filter((r, idx) => idx >= 1 && idx <= 5 && r.solved).length;
+
+                let nextUnsolved = -1;
+                for (let offset = 1; offset <= 5; offset++) {
+                    if (solvedRowIndex - offset >= 1 && !rowStates[solvedRowIndex - offset].solved) {
+                        nextUnsolved = solvedRowIndex - offset;
+                        break;
+                    }
+                    if (solvedRowIndex + offset <= 5 && !rowStates[solvedRowIndex + offset].solved) {
+                        nextUnsolved = solvedRowIndex + offset;
+                        break;
+                    }
+                }
+
+                if (nextUnsolved !== -1) {
+                    playCorrectRowSound(solvedCount, 5);
+                    activeWordIndex = nextUnsolved;
+                    renderBoard();
+                    triggerSequentialWave(solvedRowIndex);
+                } else {
+                    isGameCompleted = true;
+                    clearInterval(timerInterval);
+                    playCorrectRowSound(5, 5);
+                    setTimeout(playVictoryJingle, 350);
+                    document.getElementById('completedBanner').classList.remove('hidden');
+                    setTimeout(showVictoryModal, 1400);
+                }
+
+                saveGameState();
+            } else {
+                showToast("Not the right word");
+                playIncorrectRowSound();
+                shakeRow(activeWordIndex);
+            }
+        }
+
+        function shakeRow(rowIdx) {
+            const rowElement = document.querySelector(`.word-row[data-row="${rowIdx}"]`);
+            if (rowElement) {
+                rowElement.classList.add('shake-row');
+                setTimeout(() => rowElement.classList.remove('shake-row'), 380);
+            }
+        }
+
+        function clearActiveRow() {
+            if (isGameCompleted) return;
+            const state = rowStates[activeWordIndex];
+            if (!state || state.solved) return;
+
+            let chars = state.current.split('');
+            for (let i = 0; i < chars.length; i++) {
+                if (!state.hints[i]) {
+                    chars[i] = ' ';
+                }
+            }
+            state.current = chars.join('');
+            renderBoard();
+            saveGameState();
+        }
+
+        function revealLetterHint() {
+            if (isGameCompleted) return;
+            const target = currentChain[activeWordIndex];
+            const state = rowStates[activeWordIndex];
+            if (!state || state.solved) return;
+
+            let revealIdx = -1;
+            for (let i = 0; i < target.length; i++) {
+                if (!state.hints[i]) {
+                    revealIdx = i;
+                    break;
+                }
+            }
+
+            if (revealIdx !== -1) {
+                let chars = state.current.split('');
+                chars[revealIdx] = target[revealIdx];
+                state.current = chars.join('');
+                state.hints[revealIdx] = true;
+
+                hintPenaltyTotal += HINT_PENALTY;
+                hintsUsedCount++;
+
+                if (state.current.trim() === target) {
+                    evaluateActiveRow();
+                } else {
+                    renderBoard();
+                    updateScoreboard();
+                    saveGameState();
+                }
+            }
+        }
+
+        function saveGameState() {
+            const todayKey = getEstDateKey();
+            const data = {
+                rowStates,
+                activeWordIndex,
+                elapsedSeconds,
+                hintPenaltyTotal,
+                hintsUsedCount,
+                isGameCompleted
+            };
+            localStorage.setItem(`linklit_daily_${todayKey}`, JSON.stringify(data));
+        }
+
+        function showVictoryModal() {
+            const timePen = Math.floor(elapsedSeconds / 3);
+            const finalScore = Math.max(0, BASE_SCORE - timePen - hintPenaltyTotal);
+
+            let heading = "Made It Through!";
+            let subscript = "Every solved chain counts! Try again tomorrow for a higher score.";
+
+            if (finalScore >= 90) {
+                heading = "Pure Genius";
+                subscript = "You scored better than 99% of players.";
+            } else if (finalScore >= 80) {
+                heading = "200 IQ";
+                subscript = "You scored better than 90% of players.";
+            } else if (finalScore >= 70) {
+                heading = "Not Bad Kid";
+                subscript = "You scored better than 75% of players.";
+            } else if (finalScore >= 50) {
+                heading = "Solid Work";
+                subscript = "You scored better than 50% of players.";
+            } else if (finalScore >= 30) {
+                heading = "Puzzle Solver";
+                subscript = "You completed the chain! Keep practicing to boost your score.";
+            }
+
+            document.getElementById('victoryHeading').textContent = heading;
+            document.getElementById('victorySubscript').textContent = subscript;
+
+            document.getElementById('summaryTimePen').textContent = `-${timePen}`;
+            document.getElementById('summaryHintPen').textContent = `-${hintPenaltyTotal}`;
+            document.getElementById('summaryFinalScore').textContent = finalScore;
+
+            triggerConfettiBurst();
+
+            document.getElementById('modalOverlay').classList.remove('hidden');
+            document.getElementById('helpModal').classList.add('hidden');
+            document.getElementById('victoryModal').classList.remove('hidden');
+        }
+
+        function shareScore() {
+            const todayKey = getEstDateKey();
+            const timePen = Math.floor(elapsedSeconds / 3);
+            const finalScore = Math.max(0, BASE_SCORE - timePen - hintPenaltyTotal);
+            const mins = String(Math.floor(elapsedSeconds / 60)).padStart(2, '0');
+            const secs = String(elapsedSeconds % 60).padStart(2, '0');
+
+            const text = `LINKLIT Daily (${todayKey})\nScore: ${finalScore}/100\nTime: ${mins}:${secs}\nHints Used: ${hintsUsedCount}`;
+
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(text).then(() => {
+                    showToast("Score copied to clipboard!");
+                }).catch(() => {
+                    fallbackCopyText(text);
+                });
+            } else {
+                fallbackCopyText(text);
+            }
+        }
+
+        function fallbackCopyText(text) {
+            try {
+                const textArea = document.createElement("textarea");
+                textArea.value = text;
+                textArea.style.position = "fixed";
+                textArea.style.left = "-9999px";
+                textArea.style.top = "0";
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                const successful = document.execCommand('copy');
+                document.body.removeChild(textArea);
+
+                if (successful) {
+                    showToast("Score copied to clipboard!");
+                } else {
+                    showToast(`Score: ${Math.max(0, BASE_SCORE - Math.floor(elapsedSeconds / 3) - hintPenaltyTotal)}/100`);
+                }
+            } catch (err) {
+                showToast("Score: " + Math.max(0, BASE_SCORE - Math.floor(elapsedSeconds / 3) - hintPenaltyTotal) + "/100");
+            }
+        }
+
+        window.onload = initGame;
+    </script>
+</body>
+</html>
