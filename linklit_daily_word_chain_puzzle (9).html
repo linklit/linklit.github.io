@@ -1,0 +1,1878 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>LINKLIT - Daily Word Chain Puzzle</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts for Monospace Timer -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            background-color: #121213;
+            color: #ffffff;
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+            overflow-x: hidden;
+        }
+
+        /* Fullscreen Confetti Canvas */
+        #confettiCanvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            pointer-events: none;
+            z-index: 60;
+        }
+
+        /* Bright Green Branding Header */
+        .bright-green-text {
+            color: #00ff66;
+            text-shadow: 0 0 14px rgba(0, 255, 102, 0.4);
+        }
+
+        /* Sharp Square Tile Styling with Standard Bold Wordle Typography */
+        .tile {
+            width: 53px;
+            height: 53px;
+            max-width: 15vw;
+            max-height: 15vw;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Clear Sans', 'Helvetica Neue', Arial, sans-serif;
+            font-size: 2.2rem;
+            font-weight: 700;
+            line-height: 1;
+            text-transform: uppercase;
+            border: 2px solid #3a3a3c;
+            border-radius: 0px;
+            margin: 0 1.5px;
+            transition: border-color 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+            box-sizing: border-box;
+            background-color: #121213;
+            color: #ffffff;
+            position: relative;
+        }
+
+        .tile-small {
+            font-size: 1.65rem;
+        }
+        .tile-tiny {
+            font-size: 1.45rem;
+        }
+
+        .tile.filled {
+            border-color: #565758;
+            color: #ffffff;
+        }
+
+        .tile.solved {
+            background-color: #538d4e !important;
+            border-color: #538d4e !important;
+            color: #ffffff !important;
+        }
+
+        .tile.hinted {
+            background-color: #b59f3b !important;
+            border-color: #b59f3b !important;
+            color: #ffffff !important;
+        }
+
+        /* Dramatic Gold 3D Flip + Shockwave for Revealed Hint Letter */
+        @keyframes hintRevealFlip {
+            0% {
+                transform: perspective(400px) rotateY(90deg) scale(0.75);
+                box-shadow: 0 0 0 0 rgba(250, 204, 21, 0.95);
+                background-color: #fef08a;
+                border-color: #fef08a;
+                color: #121213;
+            }
+            45% {
+                transform: perspective(400px) rotateY(-12deg) scale(1.22);
+                box-shadow: 0 0 22px 6px rgba(250, 204, 21, 0.75);
+                background-color: #eab308;
+                border-color: #fde047;
+                color: #ffffff;
+            }
+            75% {
+                transform: perspective(400px) rotateY(6deg) scale(0.96);
+                box-shadow: 0 0 12px 2px rgba(234, 179, 8, 0.35);
+            }
+            100% {
+                transform: perspective(400px) rotateY(0deg) scale(1);
+                box-shadow: 0 0 0 0 rgba(234, 179, 8, 0);
+            }
+        }
+
+        .tile-hint-reveal {
+            animation: hintRevealFlip 0.55s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+            z-index: 15;
+        }
+
+        /* Row Container & Selection Focus Outline */
+        .word-row {
+            padding: 4px 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .word-row.active-selected .tile {
+            border-color: #00ff66;
+        }
+
+        /* Keypress Pop Animation */
+        @keyframes popIn {
+            0% { transform: scale(0.85); }
+            50% { transform: scale(1.12); }
+            100% { transform: scale(1); }
+        }
+
+        .pop-tile {
+            animation: popIn 0.12s ease-in-out;
+        }
+
+        /* Row Shake Animation */
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-6px); }
+            40%, 80% { transform: translateX(6px); }
+        }
+
+        .shake-row {
+            animation: shake 0.35s ease-in-out;
+        }
+
+        /* Hardware-Accelerated Sequential Wave Bounce Animation */
+        @keyframes tileWaveJump {
+            0% { transform: translate3d(0, 0, 0); }
+            50% { transform: translate3d(0, -18px, 0); }
+            100% { transform: translate3d(0, 0, 0); }
+        }
+
+        .wave-bounce {
+            backface-visibility: hidden;
+            -webkit-backface-visibility: hidden;
+            transform-style: preserve-3d;
+            will-change: transform;
+            animation: tileWaveJump 220ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+        }
+
+        /* Floating +15s Penalty Animation */
+        @keyframes floatPenalty {
+            0% { opacity: 1; transform: translate(-50%, 4px) scale(0.85); }
+            20% { opacity: 1; transform: translate(-50%, -6px) scale(1.15); }
+            100% { opacity: 0; transform: translate(-50%, -28px) scale(1); }
+        }
+
+        .penalty-float {
+            position: absolute;
+            left: 50%;
+            top: -4px;
+            pointer-events: none;
+            animation: floatPenalty 0.95s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            z-index: 40;
+            text-shadow: 0 2px 8px rgba(0, 0, 0, 0.9);
+        }
+
+        /* Timer Pulse Red on Hint Penalty */
+        @keyframes timerPenaltyFlash {
+            0% { color: #f87171; transform: scale(1.18); text-shadow: 0 0 12px rgba(248, 113, 113, 0.8); }
+            100% { color: #6ee7b7; transform: scale(1); text-shadow: none; }
+        }
+
+        .timer-flash-red {
+            animation: timerPenaltyFlash 0.65s ease-out;
+        }
+
+        /* On-Screen Keypad Styling */
+        .key-btn {
+            background-color: #818384;
+            color: #ffffff;
+            font-weight: 700;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            touch-action: manipulation;
+            font-size: 0.95rem;
+            min-height: 52px;
+            user-select: none;
+        }
+
+        .key-btn:active {
+            background-color: #636566;
+        }
+
+        .key-btn-wide {
+            font-size: 0.75rem;
+            padding: 0 6px;
+        }
+
+        /* Toast Popup */
+        #toast {
+            transition: opacity 0.25s ease, transform 0.25s ease;
+            z-index: 70;
+        }
+
+        /* Custom Monospace Timer & Stat Labels Styling */
+        .timer-font {
+            font-family: 'Roboto Mono', 'Courier New', Courier, monospace;
+        }
+
+        .stat-label-font {
+            font-family: 'Roboto Mono', 'Courier New', Courier, monospace;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+        }
+
+        /* Modern Premium Logo Styling */
+        .logo-title {
+            font-family: 'Clear Sans', 'Helvetica Neue', Arial, sans-serif;
+            font-weight: 800;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+        }
+
+        .modal-subtext-font {
+            font-family: 'Verdana', sans-serif;
+            font-style: normal;
+        }
+
+        /* Slide Up Animation for Victory Popup */
+        @keyframes slideUpModal {
+            0% {
+                transform: translateY(100vh);
+                opacity: 0;
+            }
+            100% {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .slide-up-modal {
+            animation: slideUpModal 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        /* Dark Neon Glassmorphism Panel */
+        .glass-panel {
+            background: rgba(24, 24, 27, 0.96);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(0, 255, 102, 0.25);
+            box-shadow: 0 0 35px rgba(0, 0, 0, 0.8), 0 0 15px rgba(0, 255, 102, 0.1);
+        }
+
+        .glow-accent-green {
+            background: radial-gradient(circle, rgba(0, 255, 102, 0.15) 0%, rgba(0, 0, 0, 0) 70%);
+        }
+
+        #distributionCanvas {
+            width: 100%;
+            height: 125px;
+            display: block;
+            border-radius: 8px;
+            background: #09090b;
+        }
+
+        /* Demo Animation Keyframes for Start Modal Example */
+        @keyframes demoTyping {
+            0% { opacity: 0; transform: scale(0.85); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+        .demo-tile {
+            animation: demoTyping 0.3s ease-out forwards;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between items-center bg-[#121213] text-white">
+
+    <!-- Canvas overlay for full-screen victory confetti explosion -->
+    <canvas id="confettiCanvas"></canvas>
+
+    <!-- Top Completion Banner with Live Countdown -->
+    <div id="completedBanner" class="hidden w-full bg-emerald-600 text-white text-center py-2 px-4 text-xs sm:text-sm font-semibold shadow-md z-10 flex items-center justify-center gap-2">
+        <i class="fa-solid fa-circle-check"></i> <span id="bannerText">Daily Puzzle Solved! Next puzzle in --:--:--</span>
+    </div>
+
+    <!-- Header Navigation -->
+    <header class="w-full max-w-md border-b border-[#272729] py-3 px-4 grid grid-cols-3 items-center z-10">
+        <div class="flex items-center justify-start">
+            <button id="helpBtn" class="text-gray-400 hover:text-white text-xl p-1 transition" title="Help">
+                <i class="fa-solid fa-circle-question"></i>
+            </button>
+        </div>
+        <div class="flex items-center justify-center">
+            <h1 class="logo-title text-2xl text-white flex items-center">
+                LINK<span class="bright-green-text">LIT</span>
+            </h1>
+        </div>
+        <div class="flex items-center justify-end gap-2">
+            <button id="headerArchiveBtn" class="relative text-emerald-400 hover:text-emerald-300 text-xl p-1 transition" title="Play Past Puzzles">
+                <i class="fa-solid fa-calendar-days"></i>
+                <span id="archiveUnsolvedBadge" class="hidden absolute -top-1 -right-1.5 bg-amber-500 text-black text-[10px] font-black leading-none px-1.5 py-0.5 rounded-full shadow-[0_0_8px_rgba(245,158,11,0.8)]">
+                    0
+                </span>
+            </button>
+            <button id="statsBtn" class="text-gray-400 hover:text-white text-xl p-1 transition" title="Stats">
+                <i class="fa-solid fa-chart-column"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Centered Stopwatch Bar with Eye Visibility Toggle Below (No border lines above or below) -->
+    <div class="w-full max-w-md px-4 pt-2 pb-1 flex flex-col justify-center items-center text-sm sm:text-base font-medium bg-[#121213] z-10 relative">
+        <div id="timerWrapper" class="relative flex items-center justify-center gap-2 bg-[#1a1a1b] px-4 py-1.5 rounded-lg border border-[#272729]">
+            <span class="text-lg sm:text-xl">⏱️</span>
+            <span class="stat-label-font text-gray-300 font-bold text-sm sm:text-base">Timer:</span>
+            <span id="timerDisplay" class="timer-font text-lg sm:text-xl font-bold tracking-wider text-emerald-300 inline-block min-w-[88px] text-center">00:00.00</span>
+            <div id="penaltyAnchor" class="absolute inset-0 pointer-events-none"></div>
+        </div>
+        <button id="toggleTimerBtn" class="mt-1.5 text-gray-400 hover:text-white active:scale-95 transition flex items-center justify-center p-1" title="Toggle Timer Visibility" aria-label="Toggle Timer Visibility">
+            <i id="toggleTimerIcon" class="fa-solid fa-eye text-sm"></i>
+        </button>
+    </div>
+
+    <!-- Toast Notification Message -->
+    <div id="toast" class="opacity-0 pointer-events-none fixed top-20 z-[70] bg-white text-black text-xs sm:text-sm font-bold px-4 py-2 rounded-md shadow-lg transform -translate-y-2">
+        Not enough letters
+    </div>
+
+    <!-- Main Game Board Container -->
+    <main id="boardContainer" class="flex-1 w-full max-w-md flex flex-col justify-center items-center py-3 px-2 space-y-2 z-10">
+        <!-- Rows 0 through 6 generated dynamically -->
+    </main>
+
+    <!-- Controls Row -->
+    <div class="w-full max-w-md px-3 py-1 flex justify-between gap-2 z-10">
+        <button id="clearBtn" class="flex-1 bg-red-900/40 border border-red-700/60 hover:bg-red-900/60 active:bg-red-900 text-red-200 font-semibold py-2 px-2 rounded flex items-center justify-center gap-1.5 text-xs transition">
+            <i class="fa-solid fa-eraser"></i> Clear Row
+        </button>
+        <button id="hintBtn" class="flex-1 bg-yellow-900/40 border border-yellow-600/60 hover:bg-yellow-900/60 active:bg-yellow-900 text-yellow-200 font-semibold py-2 px-2 rounded flex items-center justify-center gap-1.5 text-xs transition">
+            <i class="fa-solid fa-lightbulb"></i> Reveal Letter (+15s)
+        </button>
+    </div>
+
+    <!-- Virtual On-Screen Keyboard -->
+    <div class="w-full max-w-md px-1 pb-3 pt-1 z-10">
+        <div class="flex justify-center gap-1 my-1">
+            <button class="key-btn flex-1" data-key="Q">Q</button>
+            <button class="key-btn flex-1" data-key="W">W</button>
+            <button class="key-btn flex-1" data-key="E">E</button>
+            <button class="key-btn flex-1" data-key="R">R</button>
+            <button class="key-btn flex-1" data-key="T">T</button>
+            <button class="key-btn flex-1" data-key="Y">Y</button>
+            <button class="key-btn flex-1" data-key="U">U</button>
+            <button class="key-btn flex-1" data-key="I">I</button>
+            <button class="key-btn flex-1" data-key="O">O</button>
+            <button class="key-btn flex-1" data-key="P">P</button>
+        </div>
+        <div class="flex justify-center gap-1 my-1 px-3">
+            <button class="key-btn flex-1" data-key="A">A</button>
+            <button class="key-btn flex-1" data-key="S">S</button>
+            <button class="key-btn flex-1" data-key="D">D</button>
+            <button class="key-btn flex-1" data-key="F">F</button>
+            <button class="key-btn flex-1" data-key="G">G</button>
+            <button class="key-btn flex-1" data-key="H">H</button>
+            <button class="key-btn flex-1" data-key="J">J</button>
+            <button class="key-btn flex-1" data-key="K">K</button>
+            <button class="key-btn flex-1" data-key="L">L</button>
+        </div>
+        <div class="flex justify-center gap-1 my-1">
+            <button class="key-btn key-btn-wide flex-[1.5]" data-key="ENTER">ENTER</button>
+            <button class="key-btn flex-1" data-key="Z">Z</button>
+            <button class="key-btn flex-1" data-key="X">X</button>
+            <button class="key-btn flex-1" data-key="C">C</button>
+            <button class="key-btn flex-1" data-key="V">V</button>
+            <button class="key-btn flex-1" data-key="B">B</button>
+            <button class="key-btn flex-1" data-key="N">N</button>
+            <button class="key-btn flex-1" data-key="M">M</button>
+            <button class="key-btn key-btn-wide flex-[1.5]" data-key="BACKSPACE"><i class="fa-solid fa-backspace"></i></button>
+        </div>
+    </div>
+
+    <!-- TRANSLUCENT START OVERLAY -->
+    <div id="startOverlay" class="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div id="startModal" class="bg-[#1e1e20] border border-gray-700 rounded-xl p-5 max-w-sm w-full text-center space-y-3.5 shadow-2xl">
+            <div class="flex justify-center items-center gap-2">
+                <h2 class="logo-title text-3xl text-white flex items-center">
+                    LINK<span class="bright-green-text">LIT</span>
+                </h2>
+            </div>
+            <p class="modal-subtext-font text-gray-200 text-xs leading-relaxed font-normal">
+                Connect the 7-word chain as fast as you can! Words #1 and #7 are given. Fill in the 5 middle words where each word forms a common phrase with the one before and after it.
+            </p>
+
+            <!-- Animated Mini Puzzle Demo Box -->
+            <div class="bg-[#121213] border border-zinc-800 rounded-lg p-2.5 space-y-1 my-1">
+                <div class="text-[10px] text-zinc-400 uppercase tracking-widest font-bold mb-1">How Chain Linking Works</div>
+                
+                <!-- Row 1 (Given) -->
+                <div class="flex justify-center gap-0.5 items-center">
+                    <div class="w-6 h-6 bg-emerald-800 text-white font-bold flex items-center justify-center text-[11px]">F</div>
+                    <div class="w-6 h-6 bg-emerald-800 text-white font-bold flex items-center justify-center text-[11px]">I</div>
+                    <div class="w-6 h-6 bg-emerald-800 text-white font-bold flex items-center justify-center text-[11px]">R</div>
+                    <div class="w-6 h-6 bg-emerald-800 text-white font-bold flex items-center justify-center text-[11px]">E</div>
+                </div>
+
+                <!-- Row 2 (Animated Demo Typing) -->
+                <div class="flex justify-center gap-0.5 items-center">
+                    <div class="w-6 h-6 bg-emerald-950 border border-emerald-500/60 text-emerald-300 font-bold flex items-center justify-center text-[11px]">F</div>
+                    <div id="demoTile1" class="w-6 h-6 bg-zinc-800 border border-zinc-700 text-white font-bold flex items-center justify-center text-[11px]">L</div>
+                    <div id="demoTile2" class="w-6 h-6 bg-zinc-800 border border-zinc-700 text-white font-bold flex items-center justify-center text-[11px]">Y</div>
+                </div>
+
+                <!-- Row 3 (Given) -->
+                <div class="flex justify-center gap-0.5 items-center">
+                    <div class="w-6 h-6 bg-emerald-800 text-white font-bold flex items-center justify-center text-[11px]">P</div>
+                    <div class="w-6 h-6 bg-emerald-800 text-white font-bold flex items-center justify-center text-[11px]">A</div>
+                    <div class="w-6 h-6 bg-emerald-800 text-white font-bold flex items-center justify-center text-[11px]">P</div>
+                    <div class="w-6 h-6 bg-emerald-800 text-white font-bold flex items-center justify-center text-[11px]">E</div>
+                    <div class="w-6 h-6 bg-emerald-800 text-white font-bold flex items-center justify-center text-[11px]">R</div>
+                </div>
+
+                <!-- Row 4 (Second Demo Animated Row) -->
+                <div class="flex justify-center gap-0.5 items-center">
+                    <div class="w-6 h-6 bg-emerald-950 border border-emerald-500/60 text-emerald-300 font-bold flex items-center justify-center text-[11px]">B</div>
+                    <div id="demoTile3" class="w-6 h-6 bg-zinc-800 border border-zinc-700 text-white font-bold flex items-center justify-center text-[11px]">A</div>
+                    <div id="demoTile4" class="w-6 h-6 bg-zinc-800 border border-zinc-700 text-white font-bold flex items-center justify-center text-[11px]">G</div>
+                </div>
+
+                <div id="demoCaption" class="text-[10px] text-emerald-400 font-bold italic pt-0.5">"FIRE" ➔ "FLY" (Firefly)</div>
+            </div>
+
+            <div class="flex flex-wrap justify-center gap-2 py-0.5">
+                <span class="inline-block bg-emerald-900/50 text-emerald-300 border border-emerald-700/60 px-3 py-1 rounded-full text-xs font-semibold">
+                    Today's Daily Puzzle Ready
+                </span>
+                <span id="startStreakPill" class="hidden inline-flex items-center gap-1 bg-amber-950/80 text-amber-300 border border-amber-500/50 px-3 py-1 rounded-full text-xs font-bold">
+                    🔥 <span id="startStreakText">1 Day Streak</span>
+                </span>
+            </div>
+            <button id="startGameBtn" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-lg text-base shadow-lg transition">
+                PLAY PUZZLE
+            </button>
+        </div>
+    </div>
+
+    <!-- SEMI-TRANSPARENT GAME MODALS OVERLAY -->
+    <div id="modalOverlay" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
+        <!-- Help Modal -->
+        <div id="helpModal" class="hidden bg-[#1e1e20] border border-gray-700 rounded-xl p-6 max-w-sm w-full space-y-4 text-sm relative">
+            <button class="closeModalBtn absolute top-3 right-4 text-gray-400 hover:text-white text-2xl">&times;</button>
+            <h3 class="text-lg font-bold text-center text-white border-b border-gray-700 pb-2">How To Play</h3>
+            <ul class="space-y-2 text-gray-300 text-xs leading-relaxed list-disc pl-4">
+                <li>Complete the 5 missing middle words in the word chain as fast as possible.</li>
+                <li>Each adjacent word pair forms a phrase (e.g. <strong>SILVER</strong> &rarr; <strong>LINING</strong> &rarr; <strong>FABRIC</strong>).</li>
+                <li>Tap any unsolved row to jump directly to it and solve in any order!</li>
+                <li>Your stopwatch counts up from <strong>00:00.00</strong>—lower final times rank higher!</li>
+                <li>Use <strong class="text-yellow-400">Reveal Letter</strong> (<strong>+15s</strong> penalty) if you get stuck.</li>
+                <li>Miss yesterday? Open the <strong>Past Puzzles</strong> calendar anytime to repair your streak or master the archive!</li>
+            </ul>
+            <button class="closeModalBtn w-full bg-gray-700 hover:bg-gray-600 text-white font-semibold py-2 rounded text-xs transition">
+                Got It
+            </button>
+        </div>
+
+        <!-- Victory Modal (Covers a substantial portion of the screen with slide-up animation) -->
+        <div id="victoryModal" class="hidden glass-panel rounded-2xl p-5 max-w-md w-full text-center space-y-3.5 relative slide-up-modal max-h-[92vh] overflow-y-auto my-auto">
+            <button class="closeModalBtn absolute top-3 right-4 text-gray-400 hover:text-white text-2xl transition z-10">&times;</button>
+
+            <!-- Top Header & Icon -->
+            <div class="relative pt-0.5">
+                <div class="absolute -top-4 left-1/2 -translate-x-1/2 w-24 h-24 glow-accent-green pointer-events-none"></div>
+                <div class="inline-flex items-center justify-center w-11 h-11 rounded-full bg-emerald-950/80 border border-emerald-500/40 text-amber-400 text-xl mb-1.5 shadow-[0_0_15px_rgba(234,179,8,0.25)]">
+                    <i class="fa-solid fa-trophy"></i>
+                </div>
+                <h3 id="victoryHeading" class="text-2xl font-black text-white tracking-wider logo-title">GREAT JOB!</h3>
+                <p id="victorySubhead" class="text-xs text-emerald-400 font-semibold tracking-wide mt-0.5"></p>
+            </div>
+
+            <!-- Badges Bar -->
+            <div id="badgeContainer" class="flex justify-center items-center gap-2">
+                <span id="streakBadge" class="bg-amber-950/80 border border-amber-500/50 text-amber-300 text-[11px] px-3 py-1 rounded-full font-bold flex items-center gap-1.5 shadow-[0_0_10px_rgba(245,158,11,0.15)]">
+                    🔥 <span id="streakCountText">1 Day Streak</span>
+                </span>
+                <span id="personalBestBadge" class="hidden bg-emerald-950/80 border border-emerald-400/60 text-emerald-300 text-[11px] px-3 py-1 rounded-full font-bold flex items-center gap-1.5 shadow-[0_0_10px_rgba(0,255,102,0.2)]">
+                    ⚡ FASTEST TIME!
+                </span>
+            </div>
+
+            <!-- Graph Container with Time in Top Left -->
+            <div class="bg-[#09090b] p-3 rounded-xl border border-zinc-800 space-y-1 relative shadow-inner text-left">
+                <div class="flex items-baseline justify-between px-1">
+                    <div>
+                        <div id="summaryFinalScore" class="font-black text-white text-3xl tracking-tight timer-font">00:00.00</div>
+                        <div class="text-[10px] text-zinc-400 tracking-wide font-medium uppercase">Total Time (Raw + Penalty)</div>
+                    </div>
+                </div>
+                <canvas id="distributionCanvas" width="320" height="110"></canvas>
+                <div id="percentileBadge" class="text-[11px] font-extrabold text-emerald-400 tracking-wider uppercase py-1.5 px-2 bg-emerald-950/60 border border-emerald-500/40 rounded-lg text-center shadow-sm">
+                    FASTER THAN --% OF TODAY'S PLAYERS
+                </div>
+            </div>
+
+            <!-- Stats Breakdown Card Grid -->
+            <div class="grid grid-cols-2 gap-2 text-center text-xs">
+                <div class="bg-[#09090b]/80 border border-zinc-800 rounded-xl p-2.5 flex flex-col justify-center">
+                    <div class="text-zinc-400 text-[10px] uppercase font-bold tracking-wider">Stopwatch Time</div>
+                    <div id="summaryTimeText" class="font-bold text-white text-sm mt-1 timer-font">00:00.00</div>
+                </div>
+                <div class="bg-[#09090b]/80 border border-zinc-800 rounded-xl p-2.5 flex flex-col justify-center">
+                    <div class="text-zinc-400 text-[10px] uppercase font-bold tracking-wider">Hint Penalty</div>
+                    <div id="summaryHintText" class="font-bold text-amber-400 text-sm mt-1">0 Used (<span id="summaryHintPen">+0s</span>)</div>
+                </div>
+            </div>
+
+            <!-- Live Midnight Countdown + Daily Reminder -->
+            <div class="bg-[#09090b]/90 border border-emerald-500/30 rounded-xl py-2 px-3 shadow-inner flex items-center justify-between gap-2">
+                <div class="text-left">
+                    <div class="text-[10px] text-zinc-400 uppercase font-bold tracking-wider">Next Daily Puzzle</div>
+                    <div id="midnightCountdownText" class="text-xs sm:text-sm text-emerald-300 font-bold timer-font">00:00:00</div>
+                </div>
+                <button id="dailyReminderBtn" class="bg-emerald-950 hover:bg-emerald-900 border border-emerald-500/50 text-emerald-300 text-[11px] font-bold px-2.5 py-1.5 rounded-lg flex items-center gap-1.5 transition" title="Add recurring daily reminder to your calendar">
+                    <i class="fa-solid fa-bell"></i> Remind Me
+                </button>
+            </div>
+
+            <!-- Primary & Archive CTAs -->
+            <div class="space-y-2.5 pt-1">
+                <button id="shareBtn" class="w-full bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 active:scale-[0.98] text-white font-bold py-3.5 rounded-xl text-sm flex items-center justify-center gap-2 transition shadow-[0_0_15px_rgba(0,255,102,0.25)]">
+                    <i class="fa-solid fa-share-nodes"></i> Share Grid
+                </button>
+
+                <button id="victoryArchiveBtn" class="w-full bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-600 hover:from-indigo-500 hover:to-purple-500 active:scale-[0.98] border border-indigo-400/60 text-white font-extrabold py-3.5 px-4 rounded-xl text-sm flex items-center justify-center gap-2.5 transition shadow-[0_0_20px_rgba(99,102,241,0.45)]">
+                    <i class="fa-solid fa-calendar-days text-amber-300 text-base"></i>
+                    <span>PLAY PAST PUZZLES (<span id="victoryArchiveProgress">0/0 Solved</span>)</span>
+                </button>
+            </div>
+
+            <!-- Subtle Add to Home Screen Tip -->
+            <div class="text-[10px] text-zinc-400 pt-0.5 flex items-center justify-center gap-1.5 text-center">
+                <i class="fa-solid fa-mobile-screen-button text-emerald-400"></i>
+                <span>Tip: Tap <strong>Share &rarr; Add to Home Screen</strong> to play daily like an app!</span>
+            </div>
+        </div>
+
+        <!-- Past Puzzles Archive Modal -->
+        <div id="archiveModal" class="hidden bg-[#1e1e20] border border-indigo-500/70 rounded-xl p-5 max-w-sm w-full space-y-3.5 text-sm relative shadow-2xl">
+            <button class="closeModalBtn absolute top-3 right-4 text-gray-400 hover:text-white text-2xl">&times;</button>
+            <div class="text-center space-y-1">
+                <h3 class="text-xl font-bold text-white flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-calendar-days text-indigo-400"></i> Past Puzzles
+                </h3>
+                <p class="text-xs text-gray-400">Complete past chains to level up your Archive Rank!</p>
+            </div>
+
+            <div class="bg-[#121213] border border-zinc-800 rounded-lg p-3 space-y-1.5">
+                <div class="flex justify-between items-center text-xs">
+                    <span id="archiveRankTitle" class="font-bold text-indigo-300 flex items-center gap-1.5">
+                        <i class="fa-solid fa-medal text-amber-400"></i> Word Explorer
+                    </span>
+                    <span id="archiveMasteryText" class="font-bold text-emerald-400 timer-font">0 / 0 Solved</span>
+                </div>
+                <div class="w-full h-2 bg-zinc-800 rounded-full overflow-hidden">
+                    <div id="archiveMasteryBar" class="h-full bg-gradient-to-r from-indigo-500 to-emerald-400 transition-all duration-500" style="width: 0%;"></div>
+                </div>
+            </div>
+            
+            <div id="archiveList" class="max-h-60 overflow-y-auto space-y-2 pr-1">
+                <!-- Dynamically populated past puzzle items -->
+            </div>
+
+            <button id="backToTodayBtn" class="w-full bg-emerald-700 hover:bg-emerald-600 text-white font-semibold py-2.5 rounded-lg text-xs transition flex items-center justify-center gap-2">
+                <i class="fa-solid fa-arrow-rotate-left"></i> Play Today's Daily Puzzle
+            </button>
+        </div>
+    </div>
+
+    <!-- Core Game Logic Script -->
+    <script>
+        const canvas = document.getElementById('confettiCanvas');
+        const ctx = canvas.getContext('2d');
+        let particles = [];
+        let confettiAnimationId = null;
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        function triggerConfettiBurst() {
+            particles = [];
+            const colors = ['#00ff66', '#ffffff', '#eab308', '#3b82f6', '#ec4899', '#a855f7'];
+            const count = 120;
+
+            for (let i = 0; i < count; i++) {
+                particles.push({
+                    x: canvas.width / 2,
+                    y: canvas.height * 0.45,
+                    vx: (Math.random() - 0.5) * 16,
+                    vy: (Math.random() - 0.8) * 18,
+                    size: Math.random() * 8 + 5,
+                    color: colors[Math.floor(Math.random() * colors.length)],
+                    rotation: Math.random() * 360,
+                    rSpeed: (Math.random() - 0.5) * 10,
+                    opacity: 1,
+                    decay: Math.random() * 0.012 + 0.008
+                });
+            }
+
+            if (confettiAnimationId) cancelAnimationFrame(confettiAnimationId);
+            animateConfetti();
+        }
+
+        function animateConfetti() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            let alive = false;
+
+            particles.forEach(p => {
+                if (p.opacity > 0) {
+                    alive = true;
+                    p.x += p.vx;
+                    p.y += p.vy;
+                    p.vy += 0.4;
+                    p.vx *= 0.98;
+                    p.rotation += p.rSpeed;
+                    p.opacity -= p.decay;
+
+                    ctx.save();
+                    ctx.globalAlpha = Math.max(0, p.opacity);
+                    ctx.translate(p.x, p.y);
+                    ctx.rotate((p.rotation * Math.PI) / 180);
+                    ctx.fillStyle = p.color;
+                    ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 0.6);
+                    ctx.restore();
+                }
+            });
+
+            if (alive) {
+                confettiAnimationId = requestAnimationFrame(animateConfetti);
+            } else {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+            }
+        }
+
+        // Daily Puzzles Schedule with Explicit Date Mapping (Eastern Time YYYY-MM-DD)
+        const SCHEDULED_PUZZLES = {
+            "2026-11-01": ["FIRE", "FLY", "PAPER", "BAG", "PIPE", "LINE", "DANCE"],
+            "2026-11-02": ["MCDONALDS", "BURGER", "KING", "BED", "TIME", "ZONE", "OUT"],
+            "2026-11-03": ["FRIED", "CHICKEN", "BREAST", "CANCER", "TREATMENT", "ROOM", "KEY"],
+            "2026-11-04": ["SUN", "FLOWER", "POWER", "LINE", "DANCE", "FLOOR", "BOARD"],
+            "2026-11-05": ["MERRY", "CHRISTMAS", "TREE", "HOUSE", "KEEPING", "UP", "DOWN"],
+            "2026-11-06": ["BASEBALL", "HAT", "TRICK", "PLAY", "BALL", "OUT", "LAW"],
+            "2026-11-07": ["TALK", "SHOW", "DOWN", "FALL", "OUT", "BREAK", "UP"],
+            "2026-11-08": ["NINTENDO", "WII", "SPORTS", "CAR", "CRASH", "OUT", "SIDE"],
+            "2026-11-09": ["TAYLOR", "SWIFT", "KICK", "OFF", "SIDE", "LINE", "UP"],
+            "2026-11-10": ["SNEAK", "ATTACK", "DOG", "BED", "TIME", "OUT", "SIDE"],
+            "2026-11-11": ["WATER", "BOTTLE", "NECK", "PAIN", "KILLER", "BEE", "HIVE"],
+            "2026-11-12": ["POTATO", "SALAD", "DRESSING", "ROOM", "SERVICE", "DOG", "TOY"],
+            "2026-11-13": ["OCEAN", "FRONT", "DOOR", "BELL", "PEPPER", "JACK", "RABBIT"],
+            "2026-11-14": ["ROCK", "STAR", "FISH", "BOWL", "GAME", "POINT", "GUARD"],
+            "2026-11-15": ["POLE", "VAULT", "DOOR", "BELL", "PEPPER", "SPRAY", "PAINT"],
+            "2026-11-16": ["SUPER", "MARIO", "PARTY", "ANIMAL", "CRACKER", "JACK", "POT"],
+            "2026-11-17": ["BARBIE", "DOLL", "HOUSE", "PARTY", "ANIMAL", "FARM", "HOUSE"],
+            "2026-11-18": ["POKEMON", "GO", "FISH", "TANK", "TOP", "SECRET", "AGENT"]
+        };
+
+        const FALLBACK_CHAINS = Object.values(SCHEDULED_PUZZLES);
+        const HINT_PENALTY_SECONDS = 15;
+
+        let selectedDateKey = "";
+        let todayEstKey = "";
+        let currentChain = [];
+        let rowStates = [];
+        let activeWordIndex = 1;
+        let timerInterval = null;
+        let lastTickTimestamp = null;
+        let elapsedSeconds = 0;
+        let hintPenaltyTotal = 0;
+        let hintsUsedCount = 0;
+        let isGameCompleted = false;
+        let isTimerHidden = false;
+        let countdownInterval = null;
+
+        function getEstDateKey() {
+            return new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+        }
+
+        function getPuzzleNumber(dateKey) {
+            const sortedAsc = Object.keys(SCHEDULED_PUZZLES).sort((a, b) => a.localeCompare(b));
+            const idx = sortedAsc.indexOf(dateKey);
+            return idx !== -1 ? idx + 1 : 1;
+        }
+
+        function getYesterdayEstDateKey() {
+            const d = new Date();
+            d.setDate(d.getDate() - 1);
+            return d.toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+        }
+
+        function formatTime(totalSeconds) {
+            const safeSec = Math.max(0, totalSeconds);
+            const totalCentiseconds = Math.floor(safeSec * 100);
+            const mins = String(Math.floor(totalCentiseconds / 6000)).padStart(2, '0');
+            const secs = String(Math.floor((totalCentiseconds % 6000) / 100)).padStart(2, '0');
+            const cs = String(totalCentiseconds % 100).padStart(2, '0');
+            return `${mins}:${secs}.${cs}`;
+        }
+
+        function formatCompactTime(totalSeconds) {
+            const safeSec = Math.max(0, totalSeconds);
+            const mins = Math.floor(safeSec / 60);
+            const secs = (safeSec % 60).toFixed(2).padStart(5, '0');
+            return mins > 0 ? `${mins}:${secs}` : `${secs}s`;
+        }
+
+        function getArchiveStats() {
+            const allDates = Object.keys(SCHEDULED_PUZZLES).sort((a, b) => b.localeCompare(a));
+            const availableDates = allDates.filter(d => d <= todayEstKey);
+            let solvedCount = 0;
+            const unsolvedDates = [];
+
+            availableDates.forEach(date => {
+                const saved = localStorage.getItem(`linklit_daily_${date}`);
+                let solved = false;
+                if (saved) {
+                    try {
+                        const parsed = JSON.parse(saved);
+                        if (parsed.isGameCompleted) solved = true;
+                    } catch (e) {}
+                }
+                if (solved) solvedCount++;
+                else unsolvedDates.push(date);
+            });
+
+            return {
+                total: availableDates.length,
+                solved: solvedCount,
+                unsolvedCount: unsolvedDates.length,
+                unsolvedDates
+            };
+        }
+
+        function getArchiveRank(solved, total) {
+            if (total === 0) return "Word Explorer";
+            const pct = solved / total;
+            if (pct >= 1) return "Chain Grandmaster";
+            if (pct >= 0.75) return "Link Virtuoso";
+            if (pct >= 0.4) return "Phrase Detective";
+            if (solved >= 1) return "Chain Apprentice";
+            return "Word Explorer";
+        }
+
+        function refreshRetentionIndicators() {
+            const stats = getArchiveStats();
+            const badge = document.getElementById('archiveUnsolvedBadge');
+            if (badge) {
+                if (stats.unsolvedCount > 0) {
+                    badge.textContent = stats.unsolvedCount;
+                    badge.classList.remove('hidden');
+                } else {
+                    badge.classList.add('hidden');
+                }
+            }
+
+            const streak = calculateStreak();
+            const startStreakPill = document.getElementById('startStreakPill');
+            const startStreakText = document.getElementById('startStreakText');
+            if (startStreakPill && startStreakText) {
+                if (streak > 0) {
+                    startStreakText.textContent = `${streak} Day Streak`;
+                    startStreakPill.classList.remove('hidden');
+                } else {
+                    startStreakPill.classList.add('hidden');
+                }
+            }
+
+            const victoryArchiveProgress = document.getElementById('victoryArchiveProgress');
+            if (victoryArchiveProgress) {
+                victoryArchiveProgress.textContent = `${stats.solved}/${stats.total} Solved`;
+            }
+
+            const nextUnsolvedBtn = document.getElementById('nextUnsolvedBtn');
+            const nextUnsolvedLabel = document.getElementById('nextUnsolvedLabel');
+            if (nextUnsolvedBtn && nextUnsolvedLabel) {
+                const otherUnsolved = stats.unsolvedDates.filter(d => d !== selectedDateKey);
+                if (otherUnsolved.length > 0) {
+                    nextUnsolvedLabel.textContent = `Play #${getPuzzleNumber(otherUnsolved[0])}`;
+                    nextUnsolvedBtn.disabled = false;
+                    nextUnsolvedBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                } else if (stats.unsolvedDates.length > 0) {
+                    nextUnsolvedLabel.textContent = `Play #${getPuzzleNumber(stats.unsolvedDates[0])}`;
+                    nextUnsolvedBtn.disabled = false;
+                    nextUnsolvedBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                } else {
+                    nextUnsolvedLabel.textContent = "All Caught Up!";
+                    nextUnsolvedBtn.disabled = true;
+                    nextUnsolvedBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                }
+            }
+        }
+
+        function getTimeUntilMidnightEst() {
+            const now = new Date();
+            const estString = now.toLocaleString('en-US', { timeZone: 'America/New_York' });
+            const estNow = new Date(estString);
+            const estMidnight = new Date(estNow);
+            estMidnight.setHours(24, 0, 0, 0);
+
+            const diffMs = Math.max(0, estMidnight - estNow);
+            const hrs = String(Math.floor(diffMs / 3600000)).padStart(2, '0');
+            const mins = String(Math.floor((diffMs % 3600000) / 60000)).padStart(2, '0');
+            const secs = String(Math.floor((diffMs % 60000) / 1000)).padStart(2, '0');
+            return `${hrs}:${mins}:${secs}`;
+        }
+
+        function startMidnightCountdown() {
+            if (countdownInterval) clearInterval(countdownInterval);
+            const updateCountdown = () => {
+                const remaining = getTimeUntilMidnightEst();
+                const cdEl = document.getElementById('midnightCountdownText');
+                if (cdEl) cdEl.textContent = remaining;
+
+                const bannerText = document.getElementById('bannerText');
+                if (bannerText && isGameCompleted && selectedDateKey === todayEstKey) {
+                    bannerText.textContent = `Daily Puzzle Solved! Next puzzle in ${remaining}`;
+                }
+            };
+            updateCountdown();
+            countdownInterval = setInterval(updateCountdown, 1000);
+        }
+
+        function toggleTimerVisibility() {
+            isTimerHidden = !isTimerHidden;
+            localStorage.setItem('linklit_hide_timer', isTimerHidden ? '1' : '0');
+            applyTimerVisibility();
+        }
+
+        function applyTimerVisibility() {
+            const timerDisplay = document.getElementById('timerDisplay');
+            const toggleIcon = document.getElementById('toggleTimerIcon');
+            if (!timerDisplay || !toggleIcon) return;
+
+            if (isTimerHidden) {
+                timerDisplay.textContent = 'HIDDEN';
+                timerDisplay.classList.remove('text-emerald-300');
+                timerDisplay.classList.add('text-gray-500', 'tracking-widest');
+                toggleIcon.className = 'fa-solid fa-eye-slash text-sm';
+            } else {
+                timerDisplay.classList.remove('text-gray-500', 'tracking-widest');
+                timerDisplay.classList.add('text-emerald-300');
+                toggleIcon.className = 'fa-solid fa-eye text-sm';
+                updateScoreboard();
+            }
+        }
+
+        function getAudioContext() {
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            if (!AudioContext) return null;
+            return new AudioContext();
+        }
+
+        function playCorrectRowSound(solvedCount = 1) {
+            try {
+                const ctx = getAudioContext();
+                if (!ctx) return;
+                const now = ctx.currentTime;
+                const pitchMap = [523.25, 659.25, 783.99, 987.77, 1046.50];
+                const rootFreq = pitchMap[Math.min(solvedCount - 1, pitchMap.length - 1)] || 523.25;
+                const chordNotes = [rootFreq, rootFreq * 1.25, rootFreq * 1.5];
+
+                chordNotes.forEach((freq, idx) => {
+                    const noteTime = now + (idx * 0.045);
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(freq, noteTime);
+                    gain.gain.setValueAtTime(0.001, noteTime);
+                    gain.gain.linearRampToValueAtTime(0.25, noteTime + 0.015);
+                    gain.gain.exponentialRampToValueAtTime(0.0001, noteTime + 0.35);
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start(noteTime);
+                    osc.stop(noteTime + 0.36);
+                });
+            } catch (e) {}
+        }
+
+        function playHintSound() {
+            try {
+                const ctx = getAudioContext();
+                if (!ctx) return;
+                const now = ctx.currentTime;
+                [587.33, 880].forEach((freq, i) => {
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(freq, now + i * 0.06);
+                    gain.gain.setValueAtTime(0.18, now + i * 0.06);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.06 + 0.22);
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start(now + i * 0.06);
+                    osc.stop(now + i * 0.06 + 0.23);
+                });
+            } catch (e) {}
+        }
+
+        function playIncorrectRowSound() {
+            try {
+                const ctx = getAudioContext();
+                if (!ctx) return;
+                const now = ctx.currentTime;
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(160, now);
+                osc.frequency.exponentialRampToValueAtTime(90, now + 0.18);
+                gain.gain.setValueAtTime(0.15, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.18);
+            } catch (e) {}
+        }
+
+        function playVictoryJingle() {
+            try {
+                const audioCtx = getAudioContext();
+                if (!audioCtx) return;
+                const notes = [
+                    { note: 523.25, time: 0, duration: 0.12 },
+                    { note: 659.25, time: 0.12, duration: 0.12 },
+                    { note: 783.99, time: 0.24, duration: 0.12 },
+                    { note: 1046.50, time: 0.36, duration: 0.35 }
+                ];
+
+                notes.forEach(n => {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.value = n.note;
+                    gain.gain.setValueAtTime(0.2, audioCtx.currentTime + n.time);
+                    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + n.time + n.duration);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start(audioCtx.currentTime + n.time);
+                    osc.stop(audioCtx.currentTime + n.time + n.duration);
+                });
+            } catch (e) {}
+        }
+
+        function triggerPenaltyAnimation() {
+            const anchor = document.getElementById('penaltyAnchor');
+            const timerEl = document.getElementById('timerDisplay');
+            if (!anchor || !timerEl) return;
+
+            const badge = document.createElement('div');
+            badge.className = 'penalty-float timer-font font-extrabold text-sm sm:text-base text-amber-400 whitespace-nowrap';
+            badge.textContent = `+${HINT_PENALTY_SECONDS}s`;
+            anchor.appendChild(badge);
+
+            setTimeout(() => {
+                if (badge.parentNode) badge.parentNode.removeChild(badge);
+            }, 980);
+
+            if (!isTimerHidden) {
+                timerEl.classList.remove('timer-flash-red');
+                void timerEl.offsetWidth;
+                timerEl.classList.add('timer-flash-red');
+            }
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            toast.textContent = msg;
+            toast.classList.remove('opacity-0', 'pointer-events-none', '-translate-y-2');
+            toast.classList.add('opacity-100', 'translate-y-0');
+            setTimeout(() => {
+                toast.classList.remove('opacity-100', 'translate-y-0');
+                toast.classList.add('opacity-0', 'pointer-events-none', '-translate-y-2');
+            }, 1800);
+        }
+
+        function loadPuzzleForDate(dateKey) {
+            selectedDateKey = dateKey;
+            if (timerInterval) clearInterval(timerInterval);
+            lastTickTimestamp = null;
+
+            if (SCHEDULED_PUZZLES[dateKey]) {
+                currentChain = SCHEDULED_PUZZLES[dateKey];
+            } else {
+                let hash = 0;
+                for (let i = 0; i < dateKey.length; i++) hash += dateKey.charCodeAt(i);
+                currentChain = FALLBACK_CHAINS[Math.abs(hash) % FALLBACK_CHAINS.length];
+            }
+
+            const savedState = localStorage.getItem(`linklit_daily_${dateKey}`);
+
+            if (savedState) {
+                try {
+                    const parsed = JSON.parse(savedState);
+                    rowStates = parsed.rowStates;
+                    elapsedSeconds = parsed.elapsedSeconds || 0;
+                    hintPenaltyTotal = parsed.hintPenaltyTotal || 0;
+                    hintsUsedCount = parsed.hintsUsedCount || 0;
+                    isGameCompleted = parsed.isGameCompleted || false;
+                    activeWordIndex = parsed.activeWordIndex || 1;
+
+                    if (isGameCompleted) {
+                        document.getElementById('completedBanner').classList.remove('hidden');
+                        document.getElementById('bannerText').textContent = (dateKey === todayEstKey) 
+                            ? `Daily Puzzle Solved! Next puzzle in ${getTimeUntilMidnightEst()}` 
+                            : `Puzzle #${getPuzzleNumber(dateKey)} Solved!`;
+                    } else {
+                        document.getElementById('completedBanner').classList.add('hidden');
+                        findFirstUnsolvedRow();
+                        startTimer();
+                    }
+                } catch (e) {
+                    setupNewBoard();
+                    isGameCompleted = false;
+                    document.getElementById('completedBanner').classList.add('hidden');
+                    startTimer();
+                }
+            } else {
+                setupNewBoard();
+                isGameCompleted = false;
+                document.getElementById('completedBanner').classList.add('hidden');
+                startTimer();
+            }
+
+            renderBoard();
+            updateScoreboard();
+            refreshRetentionIndicators();
+        }
+
+        function initGame() {
+            todayEstKey = getEstDateKey();
+            selectedDateKey = todayEstKey;
+
+            isTimerHidden = localStorage.getItem('linklit_hide_timer') === '1';
+            applyTimerVisibility();
+
+            // Start demo animation loop for modal example
+            startDemoAnimation();
+
+            const savedState = localStorage.getItem(`linklit_daily_${todayEstKey}`);
+
+            if (SCHEDULED_PUZZLES[todayEstKey]) {
+                currentChain = SCHEDULED_PUZZLES[todayEstKey];
+            } else {
+                let hash = 0;
+                for (let i = 0; i < todayEstKey.length; i++) hash += todayEstKey.charCodeAt(i);
+                currentChain = FALLBACK_CHAINS[Math.abs(hash) % FALLBACK_CHAINS.length];
+            }
+
+            if (savedState) {
+                try {
+                    const parsed = JSON.parse(savedState);
+                    rowStates = parsed.rowStates;
+                    elapsedSeconds = parsed.elapsedSeconds || 0;
+                    hintPenaltyTotal = parsed.hintPenaltyTotal || 0;
+                    hintsUsedCount = parsed.hintsUsedCount || 0;
+                    isGameCompleted = parsed.isGameCompleted || false;
+                    activeWordIndex = parsed.activeWordIndex || 1;
+
+                    document.getElementById('startOverlay').classList.add('hidden');
+
+                    if (isGameCompleted) {
+                        document.getElementById('completedBanner').classList.remove('hidden');
+                    } else {
+                        findFirstUnsolvedRow();
+                        startTimer();
+                    }
+                } catch (e) {
+                    setupNewBoard();
+                }
+            } else {
+                setupNewBoard();
+            }
+
+            renderBoard();
+            updateScoreboard();
+            refreshRetentionIndicators();
+            startMidnightCountdown();
+
+            document.getElementById('startGameBtn').addEventListener('click', () => {
+                document.getElementById('startOverlay').classList.add('hidden');
+                if (!isGameCompleted && !timerInterval) {
+                    startTimer();
+                }
+            });
+
+            document.getElementById('toggleTimerBtn').addEventListener('click', toggleTimerVisibility);
+
+            document.querySelectorAll('.closeModalBtn').forEach(btn => {
+                btn.addEventListener('click', closeAllModals);
+            });
+
+            document.getElementById('helpBtn').addEventListener('click', () => openModal('helpModal'));
+            document.getElementById('statsBtn').addEventListener('click', () => {
+                if (isGameCompleted) showVictoryModal();
+                else showToast("Complete today's puzzle to view stats!");
+            });
+
+            document.getElementById('headerArchiveBtn').addEventListener('click', openArchiveModal);
+            document.getElementById('victoryArchiveBtn').addEventListener('click', openArchiveModal);
+
+            document.getElementById('dailyReminderBtn').addEventListener('click', downloadDailyReminderICS);
+            document.getElementById('backToTodayBtn').addEventListener('click', () => {
+                closeAllModals();
+                loadPuzzleForDate(todayEstKey);
+            });
+
+            document.getElementById('clearBtn').addEventListener('click', clearActiveRow);
+            document.getElementById('hintBtn').addEventListener('click', revealLetterHint);
+            document.getElementById('shareBtn').addEventListener('click', shareScore);
+
+            window.addEventListener('keydown', handlePhysicalKeyDown);
+
+            document.querySelectorAll('.key-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    handleInput(btn.getAttribute('data-key'));
+                });
+            });
+        }
+
+        function downloadDailyReminderICS() {
+            const icsContent = [
+                "BEGIN:VCALENDAR",
+                "VERSION:2.0",
+                "PRODID:-//LINKLIT//Daily Word Chain Puzzle//EN",
+                "BEGIN:VEVENT",
+                "SUMMARY:Play Today's LINKLIT Word Chain!",
+                "DESCRIPTION:Keep your LINKLIT streak alive! Connect today's 7-word chain.",
+                "DTSTART:20261115T120000",
+                "DTEND:20261115T121500",
+                "RRULE:FREQ=DAILY",
+                "BEGIN:VALARM",
+                "TRIGGER:-PT0M",
+                "ACTION:DISPLAY",
+                "DESCRIPTION:Daily LINKLIT Reminder",
+                "END:VALARM",
+                "END:VEVENT",
+                "END:VCALENDAR"
+            ].join("\r\n");
+
+            const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', 'linklit-daily-reminder.ics');
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            showToast("Daily calendar reminder downloaded!");
+        }
+
+        function closeAllModals() {
+            document.getElementById('modalOverlay').classList.add('hidden');
+            document.getElementById('helpModal').classList.add('hidden');
+            document.getElementById('victoryModal').classList.add('hidden');
+            document.getElementById('archiveModal').classList.add('hidden');
+        }
+
+        function openModal(modalId) {
+            closeAllModals();
+            document.getElementById('modalOverlay').classList.remove('hidden');
+            document.getElementById(modalId).classList.remove('hidden');
+        }
+
+        function openArchiveModal() {
+            populateArchiveList();
+            openModal('archiveModal');
+        }
+
+        function populateArchiveList() {
+            const listContainer = document.getElementById('archiveList');
+            listContainer.innerHTML = '';
+
+            const stats = getArchiveStats();
+            const yesterdayKey = getYesterdayEstDateKey();
+
+            const masteryText = document.getElementById('archiveMasteryText');
+            const masteryBar = document.getElementById('archiveMasteryBar');
+            const rankTitle = document.getElementById('archiveRankTitle');
+            if (masteryText && masteryBar && rankTitle) {
+                masteryText.textContent = `${stats.solved} / ${stats.total} Solved`;
+                const pct = stats.total > 0 ? Math.round((stats.solved / stats.total) * 100) : 0;
+                masteryBar.style.width = `${pct}%`;
+                rankTitle.innerHTML = `<i class="fa-solid fa-medal text-amber-400"></i> ${getArchiveRank(stats.solved, stats.total)}`;
+            }
+
+            const allDates = Object.keys(SCHEDULED_PUZZLES).sort((a, b) => b.localeCompare(a));
+            const pastOrTodayDates = allDates.filter(date => date <= todayEstKey);
+
+            pastOrTodayDates.forEach(date => {
+                const puzzleNum = getPuzzleNumber(date);
+                const saved = localStorage.getItem(`linklit_daily_${date}`);
+                let solved = false;
+                let timeText = "";
+
+                if (saved) {
+                    try {
+                        const parsed = JSON.parse(saved);
+                        if (parsed.isGameCompleted) {
+                            solved = true;
+                            timeText = formatTime((parsed.elapsedSeconds || 0) + (parsed.hintPenaltyTotal || 0));
+                        }
+                    } catch(e){}
+                }
+
+                const isStreakRepair = !solved && date === yesterdayKey;
+                const item = document.createElement('div');
+                item.className = `p-3 rounded-lg border flex justify-between items-center transition ${
+                    date === selectedDateKey 
+                        ? 'border-emerald-500 bg-emerald-950/40' 
+                        : isStreakRepair
+                            ? 'border-amber-500/70 bg-amber-950/20 hover:border-amber-400'
+                            : 'border-gray-700 bg-[#121213] hover:border-gray-500'
+                }`;
+
+                const chainWords = SCHEDULED_PUZZLES[date];
+                const preview = `${chainWords[0]} ➔ ... ➔ ${chainWords[6]}`;
+
+                item.innerHTML = `
+                    <div class="cursor-pointer flex-1" id="select-date-${date}">
+                        <div class="flex flex-wrap items-center gap-1.5">
+                            <span class="font-bold text-white text-xs sm:text-sm">Puzzle #${puzzleNum}</span>
+                            ${date === todayEstKey ? '<span class="bg-emerald-900 text-emerald-300 text-[10px] px-1.5 py-0.5 rounded font-bold">TODAY</span>' : ''}
+                            ${isStreakRepair ? '<span class="bg-amber-600/30 border border-amber-500/60 text-amber-300 text-[9px] px-1.5 py-0.5 rounded font-extrabold">🔥 STREAK REPAIR</span>' : ''}
+                        </div>
+                        <div class="text-[11px] text-gray-400 mt-0.5">${preview}</div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        ${solved 
+                            ? `<div class="flex flex-col items-end gap-1">
+                                <span class="text-[11px] font-bold text-emerald-400 timer-font"><i class="fa-solid fa-stopwatch"></i> ${timeText}</span>
+                                <button id="replay-btn-${date}" class="bg-amber-800/60 hover:bg-amber-700 active:bg-amber-800 border border-amber-600/60 text-amber-200 text-[10px] px-2 py-0.5 rounded flex items-center gap-1 font-semibold transition">
+                                    <i class="fa-solid fa-rotate-right"></i> Replay
+                                </button>
+                               </div>` 
+                            : `<button id="play-btn-${date}" class="bg-emerald-600/20 hover:bg-emerald-600/40 border border-emerald-500/50 px-2.5 py-1 rounded text-xs text-emerald-300 font-bold flex items-center gap-1 transition"><i class="fa-solid fa-play text-[10px]"></i> Play</button>`
+                        }
+                    </div>
+                `;
+
+                item.querySelector(`#select-date-${date}`).onclick = () => {
+                    closeAllModals();
+                    loadPuzzleForDate(date);
+                };
+
+                const replayBtn = item.querySelector(`#replay-btn-${date}`);
+                if (replayBtn) {
+                    replayBtn.onclick = (e) => {
+                        e.stopPropagation();
+                        closeAllModals();
+                        resetAndReplayDate(date);
+                    };
+                }
+
+                const playBtn = item.querySelector(`#play-btn-${date}`);
+                if (playBtn) {
+                    playBtn.onclick = (e) => {
+                        e.stopPropagation();
+                        closeAllModals();
+                        loadPuzzleForDate(date);
+                    };
+                }
+
+                listContainer.appendChild(item);
+            });
+        }
+
+        function resetAndReplayDate(dateKey) {
+            selectedDateKey = dateKey;
+            if (timerInterval) clearInterval(timerInterval);
+            lastTickTimestamp = null;
+
+            if (SCHEDULED_PUZZLES[dateKey]) {
+                currentChain = SCHEDULED_PUZZLES[dateKey];
+            } else {
+                let hash = 0;
+                for (let i = 0; i < dateKey.length; i++) hash += dateKey.charCodeAt(i);
+                currentChain = FALLBACK_CHAINS[Math.abs(hash) % FALLBACK_CHAINS.length];
+            }
+
+            setupNewBoard();
+            isGameCompleted = false;
+            elapsedSeconds = 0;
+            hintPenaltyTotal = 0;
+            hintsUsedCount = 0;
+
+            saveGameState();
+            document.getElementById('completedBanner').classList.add('hidden');
+            renderBoard();
+            updateScoreboard();
+            refreshRetentionIndicators();
+            startTimer();
+            showToast(`Replaying Puzzle #${getPuzzleNumber(dateKey)} fresh!`);
+        }
+
+        function setupNewBoard() {
+            rowStates = currentChain.map((target, idx) => {
+                if (idx === 0 || idx === 6) {
+                    return { current: target, solved: true, hints: new Array(target.length).fill(false) };
+                } else {
+                    let initial = target[0] + ' '.repeat(target.length - 1);
+                    let hints = new Array(target.length).fill(false);
+                    hints[0] = true;
+                    return { current: initial, solved: false, hints: hints };
+                }
+            });
+            activeWordIndex = 1;
+        }
+
+        function findFirstUnsolvedRow() {
+            for (let i = 1; i <= 5; i++) {
+                if (!rowStates[i].solved) {
+                    activeWordIndex = i;
+                    break;
+                }
+            }
+        }
+
+        function startTimer() {
+            if (timerInterval) clearInterval(timerInterval);
+            lastTickTimestamp = performance.now();
+            timerInterval = setInterval(() => {
+                const now = performance.now();
+                const deltaSeconds = (now - lastTickTimestamp) / 1000;
+                lastTickTimestamp = now;
+                elapsedSeconds += deltaSeconds;
+                updateScoreboard();
+            }, 45);
+        }
+
+        function updateScoreboard() {
+            const timerEl = document.getElementById('timerDisplay');
+            if (!timerEl) return;
+            if (isTimerHidden) {
+                timerEl.textContent = 'HIDDEN';
+                return;
+            }
+            timerEl.textContent = formatTime(elapsedSeconds + hintPenaltyTotal);
+        }
+
+        function renderBoard() {
+            const container = document.getElementById('boardContainer');
+            container.innerHTML = '';
+
+            currentChain.forEach((targetWord, rIdx) => {
+                const rowDiv = document.createElement('div');
+                const isSelected = (rIdx === activeWordIndex) && !isGameCompleted && !rowStates[rIdx].solved;
+                rowDiv.className = `word-row flex items-center justify-center transition-all py-0.5 ${isSelected ? 'active-selected' : ''}`;
+                rowDiv.dataset.row = rIdx;
+
+                if (rIdx > 0 && rIdx < 6 && !rowStates[rIdx].solved && !isGameCompleted) {
+                    rowDiv.style.cursor = 'pointer';
+                    rowDiv.onclick = () => {
+                        activeWordIndex = rIdx;
+                        renderBoard();
+                    };
+                }
+
+                const state = rowStates[rIdx];
+                for (let cIdx = 0; cIdx < targetWord.length; cIdx++) {
+                    const tile = document.createElement('div');
+                    const char = (state.current[cIdx] || ' ').trim();
+
+                    let classes = 'tile';
+                    if (targetWord.length >= 9) classes += ' tile-tiny';
+                    else if (targetWord.length >= 7) classes += ' tile-small';
+
+                    if (state.solved) classes += ' solved';
+                    else if (state.hints[cIdx]) classes += ' hinted';
+                    else if (char !== '') classes += ' filled';
+
+                    tile.className = classes;
+                    tile.textContent = char;
+                    rowDiv.appendChild(tile);
+                }
+
+                container.appendChild(rowDiv);
+            });
+        }
+
+        function handlePhysicalKeyDown(e) {
+            if (isGameCompleted) return;
+            if (e.key === 'Backspace' || e.key === 'Enter') e.preventDefault();
+
+            if (e.key === 'Backspace') handleInput('BACKSPACE');
+            else if (e.key === 'Enter') handleInput('ENTER');
+            else if (/^[a-zA-Z]$/.test(e.key)) handleInput(e.key.toUpperCase());
+        }
+
+        function handleInput(key) {
+            if (isGameCompleted) return;
+            const target = currentChain[activeWordIndex];
+            const state = rowStates[activeWordIndex];
+            if (!state || state.solved) return;
+
+            if (key === 'BACKSPACE') {
+                let chars = state.current.split('');
+                for (let i = chars.length - 1; i >= 0; i--) {
+                    if (!state.hints[i] && chars[i] !== ' ') {
+                        chars[i] = ' ';
+                        break;
+                    }
+                }
+                state.current = chars.join('');
+                renderBoard();
+                saveGameState();
+            } else if (key === 'ENTER') {
+                evaluateActiveRow();
+            } else if (/^[A-Z]$/.test(key)) {
+                let chars = state.current.split('');
+                for (let i = 0; i < chars.length; i++) {
+                    if (chars[i] === ' ') {
+                        chars[i] = key;
+                        state.current = chars.join('');
+                        renderBoard();
+                        saveGameState();
+
+                        const rowElement = document.querySelector(`.word-row[data-row="${activeWordIndex}"]`);
+                        if (rowElement && rowElement.children[i]) {
+                            rowElement.children[i].classList.add('pop-tile');
+                        }
+                        return;
+                    }
+                }
+            }
+        }
+
+        function triggerSequentialWave(rowIdx) {
+            const rowElement = document.querySelector(`.word-row[data-row="${rowIdx}"]`);
+            if (!rowElement) return;
+            Array.from(rowElement.children).forEach((tile, tileIdx) => {
+                tile.classList.remove('wave-bounce');
+                tile.style.animationDelay = '';
+                void tile.offsetWidth;
+                tile.style.animationDelay = `${tileIdx * 80}ms`;
+                tile.classList.add('wave-bounce');
+            });
+        }
+
+        function evaluateActiveRow() {
+            const state = rowStates[activeWordIndex];
+            const target = currentChain[activeWordIndex];
+
+            if (state.current.replace(/ /g, '').length < target.length) {
+                showToast("Not enough letters");
+                playIncorrectRowSound();
+                shakeRow(activeWordIndex);
+                return;
+            }
+
+            if (state.current.trim() === target) {
+                state.solved = true;
+                renderBoard();
+
+                const solvedRowIndex = activeWordIndex;
+                triggerSequentialWave(solvedRowIndex);
+                const solvedCount = rowStates.filter((r, idx) => idx >= 1 && idx <= 5 && r.solved).length;
+
+                let nextUnsolved = -1;
+                for (let offset = 1; offset <= 5; offset++) {
+                    if (solvedRowIndex - offset >= 1 && !rowStates[solvedRowIndex - offset].solved) {
+                        nextUnsolved = solvedRowIndex - offset;
+                        break;
+                    }
+                    if (solvedRowIndex + offset <= 5 && !rowStates[solvedRowIndex + offset].solved) {
+                        nextUnsolved = solvedRowIndex + offset;
+                        break;
+                    }
+                }
+
+                if (nextUnsolved !== -1) {
+                    playCorrectRowSound(solvedCount);
+                    activeWordIndex = nextUnsolved;
+                    renderBoard();
+                    triggerSequentialWave(solvedRowIndex);
+                } else {
+                    isGameCompleted = true;
+                    clearInterval(timerInterval);
+                    lastTickTimestamp = null;
+                    playCorrectRowSound(5);
+                    setTimeout(playVictoryJingle, 350);
+                    document.getElementById('completedBanner').classList.remove('hidden');
+                    document.getElementById('bannerText').textContent = (selectedDateKey === todayEstKey) 
+                        ? `Daily Puzzle Solved! Next puzzle in ${getTimeUntilMidnightEst()}` 
+                        : `Puzzle #${getPuzzleNumber(selectedDateKey)} Solved!`;
+                    setTimeout(showVictoryModal, 1400);
+                }
+
+                saveGameState();
+                refreshRetentionIndicators();
+            } else {
+                showToast("Not the right word");
+                playIncorrectRowSound();
+                shakeRow(activeWordIndex);
+            }
+        }
+
+        function shakeRow(rowIdx) {
+            const rowElement = document.querySelector(`.word-row[data-row="${rowIdx}"]`);
+            if (rowElement) {
+                rowElement.classList.add('shake-row');
+                setTimeout(() => rowElement.classList.remove('shake-row'), 380);
+            }
+        }
+
+        function clearActiveRow() {
+            if (isGameCompleted) return;
+            const state = rowStates[activeWordIndex];
+            if (!state || state.solved) return;
+
+            let chars = state.current.split('');
+            for (let i = 0; i < chars.length; i++) {
+                if (!state.hints[i]) chars[i] = ' ';
+            }
+            state.current = chars.join('');
+            renderBoard();
+            saveGameState();
+        }
+
+        function revealLetterHint() {
+            if (isGameCompleted) return;
+            const target = currentChain[activeWordIndex];
+            const state = rowStates[activeWordIndex];
+            if (!state || state.solved) return;
+
+            let revealIdx = -1;
+            for (let i = 0; i < target.length; i++) {
+                if (!state.hints[i]) {
+                    revealIdx = i;
+                    break;
+                }
+            }
+
+            if (revealIdx !== -1) {
+                const targetRow = activeWordIndex;
+                let chars = state.current.split('');
+                chars[revealIdx] = target[revealIdx];
+                state.current = chars.join('');
+                state.hints[revealIdx] = true;
+
+                hintPenaltyTotal += HINT_PENALTY_SECONDS;
+                hintsUsedCount++;
+
+                playHintSound();
+                triggerPenaltyAnimation();
+
+                if (state.current.trim() === target) {
+                    evaluateActiveRow();
+                } else {
+                    renderBoard();
+                    updateScoreboard();
+                    saveGameState();
+
+                    const rowElement = document.querySelector(`.word-row[data-row="${targetRow}"]`);
+                    if (rowElement && rowElement.children[revealIdx]) {
+                        rowElement.children[revealIdx].classList.add('tile-hint-reveal');
+                    }
+                }
+            }
+        }
+
+        function saveGameState() {
+            localStorage.setItem(`linklit_daily_${selectedDateKey}`, JSON.stringify({
+                rowStates,
+                activeWordIndex,
+                elapsedSeconds,
+                hintPenaltyTotal,
+                hintsUsedCount,
+                isGameCompleted
+            }));
+        }
+
+        function getMiddleLettersCount() {
+            if (!currentChain || currentChain.length < 7) return 22;
+            return currentChain.slice(1, 6).reduce((sum, word) => sum + word.length, 0);
+        }
+
+        function drawDistributionGraph(finalTimeSeconds, totalMiddleLetters) {
+            const canvas = document.getElementById('distributionCanvas');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            const width = canvas.width;
+            const height = canvas.height;
+
+            ctx.clearRect(0, 0, width, height);
+            ctx.fillStyle = '#09090b';
+            ctx.fillRect(0, 0, width, height);
+
+            const maxTime = Math.max(60, totalMiddleLetters * 20);
+            const meanTime = maxTime * 0.45;
+            const stdDev = maxTime * 0.18;
+
+            function gaussian(t) {
+                return (1 / (stdDev * Math.sqrt(2 * Math.PI))) * Math.exp(-0.5 * Math.pow((t - meanTime) / stdDev, 2));
+            }
+
+            const paddingX = 28;
+            const paddingBottom = 22;
+            const paddingTop = 20;
+            const plotW = width - paddingX * 2;
+            const plotH = height - paddingBottom - paddingTop;
+            const peakY = gaussian(meanTime);
+
+            const points = [];
+            for (let i = 0; i <= 100; i++) {
+                const ratio = i / 100;
+                const t = maxTime * (1 - ratio);
+                const px = paddingX + ratio * plotW;
+                const normY = gaussian(t) / peakY;
+                const py = height - paddingBottom - (normY * plotH);
+                points.push({ x: px, y: py, time: t });
+            }
+
+            const gradient = ctx.createLinearGradient(0, paddingTop, 0, height - paddingBottom);
+            gradient.addColorStop(0, 'rgba(0, 255, 102, 0.45)');
+            gradient.addColorStop(0.7, 'rgba(0, 255, 102, 0.08)');
+            gradient.addColorStop(1, 'rgba(0, 255, 102, 0.0)');
+
+            ctx.beginPath();
+            ctx.moveTo(points[0].x, height - paddingBottom);
+            points.forEach(p => ctx.lineTo(p.x, p.y));
+            ctx.lineTo(points[points.length - 1].x, height - paddingBottom);
+            ctx.closePath();
+            ctx.fillStyle = gradient;
+            ctx.fill();
+
+            ctx.save();
+            ctx.shadowColor = '#00ff66';
+            ctx.shadowBlur = 8;
+            ctx.beginPath();
+            points.forEach((p, idx) => {
+                if (idx === 0) ctx.moveTo(p.x, p.y);
+                else ctx.lineTo(p.x, p.y);
+            });
+            ctx.strokeStyle = '#00ff66';
+            ctx.lineWidth = 2.5;
+            ctx.stroke();
+            ctx.restore();
+
+            ctx.beginPath();
+            ctx.moveTo(paddingX, height - paddingBottom);
+            ctx.lineTo(width - paddingX, height - paddingBottom);
+            ctx.strokeStyle = '#27272a';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+
+            ctx.fillStyle = '#71717a';
+            ctx.font = 'bold 9px sans-serif';
+            ctx.textAlign = 'center';
+            [0, 0.25, 0.5, 0.75, 1].forEach(ratio => {
+                const secVal = Math.round(maxTime * (1 - ratio));
+                const px = paddingX + ratio * plotW;
+                const label = secVal >= 60 ? `${Math.floor(secVal / 60)}m${secVal % 60 > 0 ? (secVal % 60) + 's' : ''}` : `${secVal}s`;
+                ctx.fillText(label, px, height - 6);
+            });
+
+            const clampedTime = Math.max(0, Math.min(maxTime, finalTimeSeconds));
+            const playerRatio = 1 - (clampedTime / maxTime);
+            const playerX = paddingX + playerRatio * plotW;
+            const normY = gaussian(clampedTime) / peakY;
+            const playerY = height - paddingBottom - (normY * plotH);
+
+            ctx.beginPath();
+            ctx.moveTo(playerX, height - paddingBottom);
+            ctx.lineTo(playerX, playerY);
+            ctx.strokeStyle = '#f43f5e';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([3, 3]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            ctx.save();
+            ctx.shadowColor = '#f43f5e';
+            ctx.shadowBlur = 10;
+            ctx.beginPath();
+            ctx.arc(playerX, playerY, 5, 0, Math.PI * 2);
+            ctx.fillStyle = '#f43f5e';
+            ctx.fill();
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+            ctx.restore();
+
+            ctx.fillStyle = '#f43f5e';
+            ctx.font = 'bold 10px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('YOU', playerX, playerY - 8);
+
+            const z = (meanTime - finalTimeSeconds) / stdDev;
+            const percentile = Math.min(99, Math.max(1, Math.round((1 / (1 + Math.exp(-1.7 * z))) * 100)));
+            const badgeEl = document.getElementById('percentileBadge');
+            if (badgeEl) badgeEl.textContent = `FASTER THAN ${percentile}% OF TODAY'S PLAYERS`;
+        }
+
+        function calculateStreak() {
+            let streak = 0;
+            let checkDate = new Date();
+            for (let i = 0; i < 30; i++) {
+                const dateKey = checkDate.toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+                const saved = localStorage.getItem(`linklit_daily_${dateKey}`);
+                if (saved) {
+                    try {
+                        const parsed = JSON.parse(saved);
+                        if (parsed.isGameCompleted) streak++;
+                        else if (dateKey !== todayEstKey) break;
+                    } catch(e) { break; }
+                } else if (dateKey !== todayEstKey) break;
+                checkDate.setDate(checkDate.getDate() - 1);
+            }
+            return streak;
+        }
+
+        function showVictoryModal() {
+            const finalTimeSeconds = elapsedSeconds + hintPenaltyTotal;
+            const totalMiddleLetters = getMiddleLettersCount();
+
+            let heading = "GREAT JOB!";
+            if (finalTimeSeconds <= 35) heading = "LIGHTNING FAST!";
+            else if (finalTimeSeconds <= 60) heading = "BLAZING SPEED!";
+            else if (finalTimeSeconds <= 95) heading = "SHARP & QUICK!";
+
+            const headingEl = document.getElementById('victoryHeading');
+            if (headingEl) headingEl.textContent = heading;
+
+            const subheadEl = document.getElementById('victorySubhead');
+            if (subheadEl) {
+                subheadEl.textContent = (selectedDateKey === todayEstKey)
+                    ? `You completed today's LINKLIT (#${getPuzzleNumber(selectedDateKey)})!`
+                    : `You completed LINKLIT Puzzle #${getPuzzleNumber(selectedDateKey)}!`;
+            }
+
+            const timeTextEl = document.getElementById('summaryTimeText');
+            if (timeTextEl) timeTextEl.textContent = formatTime(elapsedSeconds);
+
+            const hintTextEl = document.getElementById('summaryHintText');
+            if (hintTextEl) hintTextEl.textContent = `${hintsUsedCount} Used`;
+
+            const hintPenEl = document.getElementById('summaryHintPen');
+            if (hintPenEl) hintPenEl.textContent = `+${hintPenaltyTotal}s`;
+
+            const finalScoreEl = document.getElementById('summaryFinalScore');
+            if (finalScoreEl) finalScoreEl.textContent = formatTime(finalTimeSeconds);
+
+            const prevBestTime = parseFloat(localStorage.getItem('linklit_personal_best_time') || '999999');
+            const pbBadge = document.getElementById('personalBestBadge');
+            if (finalTimeSeconds < prevBestTime) {
+                localStorage.setItem('linklit_personal_best_time', finalTimeSeconds.toFixed(2));
+                if (pbBadge) pbBadge.classList.remove('hidden');
+            } else {
+                if (pbBadge) pbBadge.classList.add('hidden');
+            }
+
+            const streak = Math.max(1, calculateStreak());
+            const streakCountText = document.getElementById('streakCountText');
+            if (streakCountText) streakCountText.textContent = `${streak} Day Streak`;
+
+            refreshRetentionIndicators();
+            drawDistributionGraph(finalTimeSeconds, totalMiddleLetters);
+
+            triggerConfettiBurst();
+            openModal('victoryModal');
+        }
+
+        function buildEmojiGrid() {
+            return rowStates.map((state, rIdx) => {
+                if (rIdx === 0 || rIdx === 6) return '⬜'.repeat(currentChain[rIdx].length);
+                return state.hints.map((wasHint, cIdx) => (cIdx === 0 ? '🟩' : (wasHint ? '🟨' : '🟩'))).join('');
+            }).join('\n');
+        }
+
+        function shareScore() {
+            const finalTimeSeconds = elapsedSeconds + hintPenaltyTotal;
+            const streak = Math.max(1, calculateStreak());
+            const text = `LINKLIT #${getPuzzleNumber(selectedDateKey)}\n⏱️ ${formatCompactTime(finalTimeSeconds)} | 💡 ${hintsUsedCount} hints | 🔥 ${streak}d\n\n${buildEmojiGrid()}`;
+            fallbackCopyText(text);
+        }
+
+        function fallbackCopyText(text) {
+            const finalTimeSeconds = elapsedSeconds + hintPenaltyTotal;
+            try {
+                const textArea = document.createElement("textarea");
+                textArea.value = text;
+                textArea.style.position = "fixed";
+                textArea.style.left = "-9999px";
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                const successful = document.execCommand('copy');
+                document.body.removeChild(textArea);
+                if (successful) showToast("Result grid copied to clipboard!");
+                else showToast(`Final Time: ${formatTime(finalTimeSeconds)}`);
+            } catch (err) {
+                showToast(`Final Time: ${formatTime(finalTimeSeconds)}`);
+            }
+        }
+
+        // Animated demonstration loop for starting popup
+        function startDemoAnimation() {
+            const t1 = document.getElementById('demoTile1');
+            const t2 = document.getElementById('demoTile2');
+            const t3 = document.getElementById('demoTile3');
+            const t4 = document.getElementById('demoTile4');
+            const cap = document.getElementById('demoCaption');
+            if (!t1 || !t2 || !t3 || !t4 || !cap) return;
+
+            const demoStates = [
+                { l1: ' ', l2: ' ', l3: ' ', l4: ' ', caption: 'Type letters to complete middle words...', solved1: false, solved2: false },
+                { l1: 'L', l2: 'Y', l3: ' ', l4: ' ', caption: '✨ "FIRE" ➔ "FLY" (Firefly)', solved1: true, solved2: false },
+                { l1: 'L', l2: 'Y', l3: 'A', l4: 'G', caption: '✨ "PAPER" ➔ "BAG" (Paperbag)', solved1: true, solved2: true }
+            ];
+
+            let step = 0;
+            setInterval(() => {
+                step = (step + 1) % demoStates.length;
+                const state = demoStates[step];
+                t1.textContent = state.l1;
+                t2.textContent = state.l2;
+                t3.textContent = state.l3;
+                t4.textContent = state.l4;
+                cap.textContent = state.caption;
+
+                if (state.solved1) {
+                    t1.className = 'w-6 h-6 bg-emerald-700 text-white font-bold flex items-center justify-center text-[11px] demo-tile';
+                    t2.className = 'w-6 h-6 bg-emerald-700 text-white font-bold flex items-center justify-center text-[11px] demo-tile';
+                } else {
+                    t1.className = 'w-6 h-6 bg-zinc-800 border border-zinc-700 text-white font-bold flex items-center justify-center text-[11px]';
+                    t2.className = 'w-6 h-6 bg-zinc-800 border border-zinc-700 text-white font-bold flex items-center justify-center text-[11px]';
+                }
+
+                if (state.solved2) {
+                    t3.className = 'w-6 h-6 bg-emerald-700 text-white font-bold flex items-center justify-center text-[11px] demo-tile';
+                    t4.className = 'w-6 h-6 bg-emerald-700 text-white font-bold flex items-center justify-center text-[11px] demo-tile';
+                } else {
+                    t3.className = 'w-6 h-6 bg-zinc-800 border border-zinc-700 text-white font-bold flex items-center justify-center text-[11px]';
+                    t4.className = 'w-6 h-6 bg-zinc-800 border border-zinc-700 text-white font-bold flex items-center justify-center text-[11px]';
+                }
+            }, 1500);
+        }
+
+        window.onload = initGame;
+    </script>
+</body>
+</html>
